@@ -1,0 +1,57 @@
+# Configuration for StyleGAN v1 on FFHQ
+experiment:
+  name: stylegan1_ffhq
+  seed: 42
+  output_dir: ./outputs/stylegan1
+  log_interval: 100
+  save_interval: 1000
+  device: cuda
+
+data:
+  name: ffhq
+  channels: 3
+  # Different batch sizes for different resolutions
+  batch_sizes:
+    4: 128
+    8: 128
+    16: 64
+    32: 32
+    64: 16
+    128: 8
+    256: 4
+    512: 2
+    1024: 1
+
+model:
+  name: stylegan1
+  latent_dim: 512
+  mapping_layers: 8  # Number of layers in mapping network
+  style_dim: 512
+  feature_maps: 16  # Base feature maps, doubles with each resolution decrease
+  use_noise: true
+  noise_scale: 0.0
+  use_mixing: true
+  mixing_prob: 0.9  # Probability of style mixing regularization
+  use_truncation: true
+  truncation_psi: 0.7
+  truncation_cutoff: 8  # Layers to apply truncation trick
+  
+training:
+  optimizer: adam
+  lr_g: 0.001
+  lr_d: 0.001
+  beta1: 0.0
+  beta2: 0.99
+  epsilon: 1e-8
+  r1_gamma: 10.0  # R1 gradient penalty weight
+  
+  # Progressive growing parameters (similar to Progressive GAN)
+  starting_resolution: 4
+  target_resolution: 1024
+  phase_iterations: 600000
+  transition_iterations: 600000
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: gans-research

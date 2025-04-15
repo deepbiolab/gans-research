@@ -1,0 +1,38 @@
+# Configuration for Conditional GAN on MNIST
+experiment:
+  name: cgan_mnist
+  seed: 42
+  output_dir: ./outputs/cgan
+  log_interval: 100
+  save_interval: 1000
+  num_epochs: 50
+  num_workers: 4
+  device: cuda
+
+data:
+  name: mnist
+  batch_size: 64
+  image_size: 28
+  channels: 1
+  num_classes: 10  # Number of class labels for conditioning
+
+model:
+  name: cgan
+  latent_dim: 100
+  hidden_dim: 256
+  embedding_dim: 50  # Dimension of condition embedding
+  use_batch_norm: true
+
+training:
+  optimizer: adam
+  lr_g: 0.0002
+  lr_d: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  use_scheduler: false
+  n_critic: 1
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: gans-research

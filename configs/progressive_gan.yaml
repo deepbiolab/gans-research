@@ -1,0 +1,51 @@
+# Configuration for Progressive GAN on CelebA-HQ
+experiment:
+  name: progressive_gan_celeba_hq
+  seed: 42
+  output_dir: ./outputs/progressive_gan
+  log_interval: 100
+  save_interval: 1000
+  device: cuda
+  
+data:
+  name: celeba_hq
+  channels: 3
+  # Progressive training uses different batch sizes for different resolutions
+  batch_sizes:
+    4: 128
+    8: 128
+    16: 128
+    32: 64
+    64: 32
+    128: 16
+    256: 8
+    512: 4
+    1024: 2
+
+model:
+  name: progressive_gan
+  latent_dim: 512
+  feature_maps: 16  # Base feature maps, doubles with each resolution decrease
+  use_minibatch_stddev: true
+  use_equalized_lr: true
+  use_pixelnorm: true
+
+training:
+  optimizer: adam
+  lr_g: 0.001
+  lr_d: 0.001
+  beta1: 0.0
+  beta2: 0.99
+  epsilon: 1e-8
+  lambda_drift: 0.001  # Epsilon drift penalty
+  
+  # Progressive growing parameters
+  starting_resolution: 4
+  target_resolution: 1024
+  phase_iterations: 600000  # Number of images shown before increasing resolution
+  transition_iterations: 600000  # Number of images for fade-in transition
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: gans-research

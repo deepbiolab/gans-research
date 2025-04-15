@@ -1,0 +1,70 @@
+# Configuration for StyleGAN v3 on FFHQ
+experiment:
+  name: stylegan3_ffhq
+  seed: 42
+  output_dir: ./outputs/stylegan3
+  log_interval: 100
+  save_interval: 1000
+  device: cuda
+
+data:
+  name: ffhq
+  channels: 3
+  # Different batch sizes for different resolutions
+  batch_sizes:
+    4: 128
+    8: 128
+    16: 64
+    32: 32
+    64: 16
+    128: 8
+    256: 4
+    512: 2
+    1024: 1
+
+model:
+  name: stylegan3
+  variant: stylegan3-t  # Options: stylegan3-t (translation), stylegan3-r (rotation)
+  latent_dim: 512
+  mapping_layers: 8
+  style_dim: 512
+  feature_maps: 16
+  use_noise: false  # StyleGAN3 removes explicit noise inputs
+  use_mixing: true
+  mixing_prob: 0.9
+  use_truncation: true
+  truncation_psi: 0.7
+  truncation_cutoff: 8
+  
+  # StyleGAN3 specific parameters
+  fmap_base: 16384
+  fmap_decay: 1.0
+  fmap_min: 1
+  fmap_max: 512
+  
+  # Transformation parameters
+  synthesis_rotation_mean: 0.0
+  synthesis_rotation_std: 0.0
+  synthesis_translation_std: 0.0
+  
+training:
+  optimizer: adam
+  lr_g: 0.0025
+  lr_d: 0.002
+  beta1: 0.0
+  beta2: 0.99
+  epsilon: 1e-8
+  r1_gamma: 10.0  # R1 gradient penalty weight
+  
+  # Fixed resolution (no progressive growing)
+  resolution: 1024
+  
+  # Path length regularization
+  pl_weight: 2.0
+  pl_decay: 0.01
+  pl_batch_shrink: 2
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: gans-research

@@ -1,0 +1,39 @@
+# Configuration for WGAN-GP on CelebA
+experiment:
+  name: wgan_gp_celeba
+  seed: 42
+  output_dir: ./outputs/wgan_gp
+  log_interval: 100
+  save_interval: 1000
+  num_epochs: 100
+  num_workers: 4
+  device: cuda
+
+data:
+  name: celeba
+  batch_size: 64
+  image_size: 128
+  channels: 3
+  crop_size: 108
+
+model:
+  name: wgan_gp
+  latent_dim: 128
+  ngf: 64
+  ndf: 64
+  use_batch_norm: false  # WGAN-GP typically uses layer normalization
+  use_layer_norm: true
+
+training:
+  optimizer: adam  # WGAN-GP can use Adam with gradient penalty
+  lr_g: 0.0001
+  lr_d: 0.0001
+  beta1: 0.0  # Different beta values for WGAN-GP
+  beta2: 0.9
+  n_critic: 5  # Update critic 5 times for each generator update
+  lambda_gp: 10.0  # Gradient penalty coefficient
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: gans-research

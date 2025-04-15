@@ -1,0 +1,67 @@
+# Configuration for StyleGAN v2 on FFHQ
+experiment:
+  name: stylegan2_ffhq
+  seed: 42
+  output_dir: ./outputs/stylegan2
+  log_interval: 100
+  save_interval: 1000
+  device: cuda
+
+data:
+  name: ffhq
+  channels: 3
+  # Different batch sizes for different resolutions
+  batch_sizes:
+    4: 128
+    8: 128
+    16: 64
+    32: 32
+    64: 16
+    128: 8
+    256: 4
+    512: 2
+    1024: 1
+
+model:
+  name: stylegan2
+  latent_dim: 512
+  mapping_layers: 8  # Number of layers in mapping network
+  style_dim: 512
+  feature_maps: 16  # Base feature maps, doubles with each resolution decrease
+  use_noise: true
+  noise_scale: 0.0
+  use_mixing: true
+  mixing_prob: 0.9  # Probability of style mixing regularization
+  use_truncation: true
+  truncation_psi: 0.7
+  truncation_cutoff: 8  # Layers to apply truncation trick
+  
+  # StyleGAN2 specific parameters
+  use_skip: true  # Skip connections
+  use_resnet: true  # Residual connections
+  fmap_base: 16384
+  fmap_decay: 1.0
+  fmap_min: 1
+  fmap_max: 512
+  use_modulated_conv: true  # Use modulated convolution
+  
+training:
+  optimizer: adam
+  lr_g: 0.002
+  lr_d: 0.002
+  beta1: 0.0
+  beta2: 0.99
+  epsilon: 1e-8
+  r1_gamma: 10.0  # R1 gradient penalty weight
+  
+  # No longer uses progressive growing
+  resolution: 1024
+  # Path length regularization
+  pl_weight: 2.0
+  pl_decay: 0.01
+  pl_batch_shrink: 2
+
+logging:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: gans-research
