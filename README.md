@@ -75,8 +75,18 @@ This repository contains implementations of key Generative Adversarial Network (
 
 ## Installation
 
+### Option 1: Install dependencies only
 ```bash
 pip install -r requirements.txt
+```
+
+### Option 2: Install as a package (recommended for development)
+```bash
+# If you have a previous installation, remove it first
+pip uninstall gans-research
+
+# Install in editable mode
+pip install -e .
 ```
 
 

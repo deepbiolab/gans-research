@@ -7,8 +7,8 @@ __pycache__/
 build/
 develop-eggs/
 dist/
-downloads/
 outputs/
+datasets/
 eggs/
 .eggs/
 lib/

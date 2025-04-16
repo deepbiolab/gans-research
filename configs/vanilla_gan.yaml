@@ -5,7 +5,7 @@ experiment:
   output_dir: ./outputs/vanilla_gan
   log_interval: 100
   save_interval: 1000
-  num_epochs: 50
+  num_epochs: 1
   num_workers: 4
   device: cuda
 
