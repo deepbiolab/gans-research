@@ -2,7 +2,6 @@
 BaseGAN module provides the base class for implementing different GAN variants.
 """
 
-
 from abc import ABC, abstractmethod
 import torch
 from torch import nn
@@ -44,6 +43,7 @@ class BaseGAN(nn.Module, ABC):
             latent_vectors = self.generate_latent(batch_size)
 
         with torch.no_grad():
+            # pylint: disable=not-callable
             images = self.generator(latent_vectors)
 
         return images

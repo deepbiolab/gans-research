@@ -102,6 +102,9 @@ class VanillaGANTrainer(GANTrainer):
 
 
 def main():
+    """
+    Main entry point for the Vanilla GAN training script.
+    """
     # Parse arguments
     parser = argparse.ArgumentParser(description="Train Vanilla GAN on MNIST")
     parser.add_argument(
