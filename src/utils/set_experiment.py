@@ -2,9 +2,14 @@
 Utility functions for experiment environment configuration, including device and random seed setup.
 """
 
-from typing import Union, Tuple
-import numpy as np
+import os
+import logging
+from typing import Union, Tuple, Optional, List, Any
+import wandb
 import torch
+import numpy as np
+from torch.utils.tensorboard import SummaryWriter
+from .visualization import make_grid
 
 
 def setup_device(gpu_id: int = -1) -> Tuple[torch.device, str]:
@@ -77,3 +82,114 @@ def configure_experiment(
     set_random_seed(seed)
 
     return config
+
+
+def setup_logger(
+    output_dir: str,
+    log_file: str = "training.log",
+    level: int = logging.INFO,
+    format_str: str = "%(asctime)s [%(levelname)s] %(message)s",
+    handlers: Optional[List] = None,
+) -> logging.Logger:
+    """
+    Setup logging configuration for training.
+
+    Args:
+        output_dir: Directory to save log file
+        log_file: Name of the log file
+        level: Logging level
+        format_str: Format string for log messages
+        handlers: Optional list of handlers to use instead of default ones
+
+    Returns:
+        Logger instance
+    """
+
+    if handlers is None:
+        handlers = [
+            logging.FileHandler(os.path.join(output_dir, log_file)),
+            logging.StreamHandler(),
+        ]
+
+    logging.basicConfig(
+        level=level,
+        format=format_str,
+        handlers=handlers,
+    )
+
+    logger = logging.getLogger(__name__)
+    return logger
+
+
+class WandbWriter:
+    """Create a wrapper class with TensorBoard-like interface for wandb"""
+
+    def add_scalar(self, name, value, step):
+        """Add a scalar value to the writer."""
+        wandb.log({name: value}, step=step)
+
+    def add_images(self, name, img_tensors, step, dataformats="NCHW", nrow=8):
+        """
+        Add multiple images to the writer.
+
+        Args:
+            name: Name of the image
+            img_tensors: List or tensor of image tensors
+            step: Global step value to record
+            dataformats: Data format of the image tensor
+            nrow: Number of images displayed in each row of the grid
+        """
+        # Create a grid of images to control layout
+        if img_tensors.dim() == 4:  # (batch, channels, height, width)
+            # Create a grid with specified number of images per row
+            grid = make_grid(img_tensors, nrow=nrow, normalize=True, padding=2)
+            # Log as a single image to maintain the grid layout
+            wandb.log({name: wandb.Image(grid)}, step=step)
+        else:
+            # Fallback for non-standard tensor shapes
+            images = [wandb.Image(img) for img in img_tensors]
+            wandb.log({name: images}, step=step)
+
+    def close(self):
+        """Close the writer"""
+        wandb.finish()
+
+
+def setup_summary(config: dict, output_dir: str) -> Any:
+    """
+    Setup experiment tracking with either TensorBoard or Weights & Biases (wandb).
+
+    Args:
+        config: Configuration dictionary containing logging settings
+        output_dir: Directory to save logs
+
+    Returns:
+        A writer object for logging metrics, or None if logging is disabled
+    """
+    logging_config = config.get("logging", {})
+
+    # Setup wandb if specified
+    if logging_config.get("use_wandb", False):
+        # Get wandb configuration
+        wandb_project = logging_config.get("wandb_project", "gan-research")
+        wandb_entity = logging_config.get("wandb_entity", None)
+        wandb_name = logging_config.get("wandb_name", None)
+        wandb_config = logging_config.get("wandb_config", config)
+
+        # Initialize wandb
+        wandb.init(
+            project=wandb_project,
+            entity=wandb_entity,
+            name=wandb_name,
+            config=wandb_config,
+            dir=output_dir,
+        )
+
+        return WandbWriter()
+
+    # Setup TensorBoard if specified or as fallback
+    if logging_config.get("use_tensorboard", True):
+        return SummaryWriter(os.path.join(output_dir, "logs"))
+
+    # No logging enabled
+    return None

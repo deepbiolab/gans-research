@@ -41,7 +41,7 @@ def make_grid(
     return grid
 
 
-def save_image_grid(grid: torch.Tensor, filepath: str) -> None:
+def save_grid(grid: torch.Tensor, filepath: str) -> None:
     """Save a grid of images."""
     # Ensure directory exists
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -68,7 +68,7 @@ def save_image_grid(grid: torch.Tensor, filepath: str) -> None:
     grid_resized.save(filepath, dpi=(300, 300), optimize=True)
 
 
-def display_image_grid(
+def display_grid(
     grid: torch.Tensor, title: str = None, figsize: tuple = (10, 10)
 ):
     """Display a grid of images."""
@@ -92,35 +92,6 @@ def display_image_grid(
     return grid
 
 
-def visualize_training_progress(
-    samples: torch.Tensor,
-    output_dir: str,
-    iteration: int,
-    nrow: int = 8,
-    image_name: str = "progress",
-) -> torch.Tensor:
-    """
-    Generate and save images using fixed noise vectors to visualize training progress.
-
-    Args:
-        samples: Tensor of generated images, (B, C, H, W)
-        output_dir: Directory to save images
-        iteration: Current iteration (used for filename)
-        nrow: Number of images per row
-        image_name: Base name for the saved image
-    """
-
-    # Create output directory if it doesn't exist
-    samples_dir = os.path.join(output_dir, "samples")
-    os.makedirs(samples_dir, exist_ok=True)
-
-    # Save grid of generated images
-    filepath = os.path.join(samples_dir, f"{image_name}_{iteration:06d}.png")
-
-    grid = make_grid(samples, nrow=nrow)
-    save_image_grid(grid, filepath)
-
-
 def extract_number(filename):
     """Extract the iteration number from a filename."""
     match = re.search(r"(\d+)\.png$", filename)
@@ -129,7 +100,7 @@ def extract_number(filename):
     return 0
 
 
-def create_training_animation(
+def create_animation(
     experiment_dir: str,
     samples_subdir: str = "samples",
     pattern: str = "progress_*.png",

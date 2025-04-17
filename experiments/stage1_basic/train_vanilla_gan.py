@@ -6,11 +6,12 @@ import argparse
 
 import yaml
 import torch
+from torch.utils.data import DataLoader
 
 from src.models.vanilla_gan import VanillaGAN
 from src.data.dataloader import create_dataloader
 from src.training.trainer import GANTrainer
-from src.utils import configure_experiment
+from src.utils.set_experiment import configure_experiment
 
 
 class VanillaGANTrainer(GANTrainer):
@@ -19,11 +20,8 @@ class VanillaGANTrainer(GANTrainer):
     Inherits from the base trainer and implements the train_step method.
     """
 
-    def __init__(self, model, config, dataloader):
+    def __init__(self, model: VanillaGAN, config: dict, dataloader: DataLoader):
         super().__init__(model, config, dataloader)
-
-        # Set number of samples for visualization
-        self.num_samples = 16
 
     def train_step(self, real_batch, iteration):
         """
@@ -85,10 +83,7 @@ class VanillaGANTrainer(GANTrainer):
         self.g_optimizer.step()
 
         # Create dictionary of losses for logging
-        losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}
-
-        if iteration % self.config["experiment"]["sample_interval"] == 0:
-            self.generate_samples(iteration, self.num_samples)
+        losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}  
         return losses
 
 

@@ -4,61 +4,60 @@ Base trainer for GAN models.
 
 import os
 import time
-import logging
+from abc import ABC, abstractmethod
 from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from src.models.base.base_gan import BaseGAN
-from src.utils import visualize_training_progress, create_training_animation
+from src.utils.set_experiment import setup_logger, setup_summary
+from src.utils.visualization import make_grid, save_grid, create_animation
 
 
-class GANTrainer:
+class GANTrainer(ABC):
     """
     Base trainer for GAN models.
     This provides a common interface for training different GAN variants.
     """
 
-    def __init__(self, model, config, dataloader):
-        self.model: BaseGAN = model
-        self.dataloader: DataLoader = dataloader
-
+    def __init__(self, model: BaseGAN, config: dict, dataloader: DataLoader) -> None:
         self.config = config
         self.device = torch.device(config["experiment"]["device"])
 
-        # Training parameters
-        self.num_epochs = config["experiment"].get("num_epochs", 100)
-        self.log_interval = config["experiment"].get("log_interval", 100)
-        self.save_interval = config["experiment"].get("save_interval", 1000)
-
-        # Setup output directory
-        self.output_dir = config["experiment"]["output_dir"]
-        os.makedirs(self.output_dir, exist_ok=True)
-        os.makedirs(os.path.join(self.output_dir, "checkpoints"), exist_ok=True)
-        os.makedirs(os.path.join(self.output_dir, "samples"), exist_ok=True)
-
-        # Setup tensorboard
-        if config["logging"].get("use_tensorboard", True):
-            self.writer = SummaryWriter(os.path.join(self.output_dir, "logs"))
-        else:
-            self.writer = None
+        # Setup model and dataloader
+        self.model = model
+        self.dataloader = dataloader
 
         # Setup optimizers
         self.setup_optimizers()
 
-        # Setup logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s [%(levelname)s] %(message)s",
-            handlers=[
-                logging.FileHandler(os.path.join(self.output_dir, "training.log")),
-                logging.StreamHandler(),
-            ],
-        )
-        self.logger = logging.getLogger(__name__)
-
+        # Setup training parameters
         self.iteration = 0
+        self.num_epochs = config["experiment"].get("num_epochs", 10)
+        self.log_interval = config["experiment"].get("log_interval", 100)
+        self.save_interval = config["experiment"].get("save_interval", 1000)
+        self.sample_interval = config["experiment"].get("sample_interval", 500)
+        self.num_samples = config["experiment"].get("num_samples", 16)
+
+        # Setup output directory
+        self.setup_directory()
+
+        # Setup tensorboard or wandb
+        self.writer = setup_summary(config, self.output_dir)
+
+        # Setup logging
+        self.logger = setup_logger(self.output_dir)
+
+    def setup_directory(self):
+        """
+        Setup directories for output and checkpoints.
+        """
+        self.output_dir = self.config["experiment"]["output_dir"]
+        os.makedirs(self.output_dir, exist_ok=True)
+        self.checkpoint_dir = os.path.join(self.output_dir, "checkpoints")
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        self.samples_dir = os.path.join(self.output_dir, "samples")
+        os.makedirs(self.samples_dir, exist_ok=True)
 
     def setup_optimizers(self):
         """
@@ -101,18 +100,25 @@ class GANTrainer:
             self.g_scheduler = None
             self.d_scheduler = None
 
+    @abstractmethod
     def train_step(self, real_batch, iteration):
         """
         Single training step.
-        To be implemented by specific GAN trainers.
+        Must be implemented by specific GAN trainers.
+
+        Args:
+            real_batch: Batch of real data
+            iteration: Current iteration number
+
+        Returns:
+            dict: Dictionary of losses
         """
-        raise NotImplementedError("This method should be implemented by subclasses")
 
     def train(self):
         """
         Main training loop.
         """
-        self.logger.info("Using device: %s", self.config["experiment"]["device"])
+        self.logger.info("Using device: %s", self.device)
         self.logger.info("Starting training for %d epochs", self.num_epochs)
 
         start_time = time.time()
@@ -131,7 +137,7 @@ class GANTrainer:
 
                 # Logging
                 if self.iteration % self.log_interval == 0:
-                    self.log_progress(losses, epoch, self.iteration)
+                    self.log_progress(losses, epoch, self.iteration, real_batch)
 
                 # Save model
                 if self.iteration % self.save_interval == 0:
@@ -155,13 +161,34 @@ class GANTrainer:
         self.save_checkpoint(self.num_epochs, self.iteration, is_final=True)
 
         # Create animation
-        gif_path = create_training_animation(
+        gif_path = create_animation(
             experiment_dir=self.output_dir,
+            samples_subdir="samples",
+            pattern="progress_*.png",
             include_iteration_text=True,
         )
         self.logger.info("Created samples animation: %s", gif_path)
 
-    def log_progress(self, losses, epoch, iteration):
+    def generate_samples(self, num_samples: int = 16) -> torch.Tensor:
+        """
+        Generate and save sample images.
+        """
+        self.model.eval()
+        with torch.no_grad():
+            samples = self.model.generate_images(num_samples)
+
+        self.model.train()
+        return samples
+
+    def log_progress(
+        self,
+        losses: dict,
+        epoch: int,
+        iteration: int,
+        real_batch: torch.Tensor,
+        nrow: int = 8,
+        image_name: str = "progress",
+    ):
         """
         Log training progress.
         """
@@ -171,14 +198,59 @@ class GANTrainer:
             log_str += f" {name}: {value:.4f}"
         self.logger.info(log_str)
 
-        # Log to tensorboard
+        # Generate samples
+        samples = self.generate_samples(self.num_samples)
+        grid = make_grid(samples, nrow=nrow)
+
+        # Save grid of generated images
+        filepath = os.path.join(self.samples_dir, f"{image_name}_{iteration:06d}.png")
+        save_grid(grid, filepath)
+        self.logger.info("Generated samples at iteration %d", iteration)
+
+        # Log to tensorboard or wandb
         if self.writer is not None:
+            # Log losses to tensorboard/wandb
             for name, value in losses.items():
                 self.writer.add_scalar(f"loss/{name}", value, iteration)
 
-    def save_checkpoint(self, epoch, iteration, is_epoch_end=False, is_final=False):
+            # Extract images from batch for comparison
+            if isinstance(real_batch, (list, tuple)):
+                images = real_batch[0].detach().cpu()
+            else:
+                images = real_batch.detach().cpu()
+
+            num_samples = samples.size(0)
+            if images.size(0) > num_samples:
+                images = images[:num_samples]
+
+            # Log real images to tensorboard/wandb
+            self.writer.add_images(
+                "samples/real", images, iteration, dataformats="NCHW"
+            )
+
+            # Log sample images to tensorboard/wandb
+            self.writer.add_images(
+                "samples/generated", samples, iteration, dataformats="NCHW"
+            )
+
+    def save_checkpoint(
+        self,
+        epoch: int,
+        iteration: int,
+        is_epoch_end: bool = False,
+        is_final: bool = False,
+    ) -> None:
         """
         Save model checkpoint.
+
+        Args:
+            epoch: Current training epoch
+            iteration: Current training iteration
+            is_epoch_end: Whether this is an end-of-epoch checkpoint
+            is_final: Whether this is the final model checkpoint
+
+        Returns:
+            None
         """
         filename = (
             "final_model.pth" if is_final else f"epoch_{epoch}_iter_{iteration}.pth"
@@ -186,7 +258,7 @@ class GANTrainer:
         if is_epoch_end and not is_final:
             filename = f"epoch_{epoch}_end.pth"
 
-        path = os.path.join(self.output_dir, "checkpoints", filename)
+        path = os.path.join(self.checkpoint_dir, filename)
         torch.save(
             {
                 "epoch": epoch,
@@ -201,21 +273,56 @@ class GANTrainer:
         )
         self.logger.info("Model saved to %s", path)
 
-    def generate_samples(self, iteration: int, num_samples: int = 16) -> torch.Tensor:
+    def load_checkpoint(
+        self,
+        checkpoint_path: str,
+        load_optimizer: bool = True,
+        strict: bool = True,
+        map_location: str = None,
+    ) -> dict:
         """
-        Generate and save sample images.
-        """
-        self.model.eval()
-        with torch.no_grad():
-            samples = self.model.generate_images(num_samples)
+        Load model and optimizer state from a checkpoint.
 
-        visualize_training_progress(
-            samples,
-            self.output_dir,
-            iteration,
-            nrow=8,
+        Args:
+            checkpoint_path: Path to the checkpoint file
+            load_optimizer: Whether to load optimizer states
+            strict: Whether to strictly enforce that the keys in state_dict match the keys in model
+            map_location: Optional device mapping when loading model on a different device
+
+        Returns:
+            dict: Loaded checkpoint data for further processing
+        """
+        self.logger.info("Loading checkpoint from %s", checkpoint_path)
+
+        if map_location is None:
+            map_location = self.device
+
+        checkpoint = torch.load(checkpoint_path, map_location=map_location)
+
+        # Load generator weights
+        self.model.generator.load_state_dict(
+            checkpoint["generator_state_dict"], strict=strict
         )
 
-        self.logger.info("Generated samples at iteration %d", iteration)
-        self.model.train()
-        return samples
+        # Load discriminator weights
+        self.model.discriminator.load_state_dict(
+            checkpoint["discriminator_state_dict"], strict=strict
+        )
+
+        # Restore training state if needed
+        self.iteration = checkpoint.get("iteration", 0)
+        epoch = checkpoint.get("epoch", 0)
+
+        # Load optimizer states if requested
+        if load_optimizer and "g_optimizer_state_dict" in checkpoint:
+            self.g_optimizer.load_state_dict(checkpoint["g_optimizer_state_dict"])
+            self.d_optimizer.load_state_dict(checkpoint["d_optimizer_state_dict"])
+            self.logger.info("Optimizer states loaded")
+
+        self.logger.info(
+            "Checkpoint loaded successfully, resuming from epoch %d, iteration %d",
+            epoch,
+            self.iteration,
+        )
+
+        return checkpoint
