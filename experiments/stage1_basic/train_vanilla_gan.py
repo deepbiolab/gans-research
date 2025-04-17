@@ -6,12 +6,11 @@ import argparse
 
 import yaml
 import torch
-import numpy as np
 
 from src.models.vanilla_gan import VanillaGAN
 from src.data.dataloader import create_dataloader
 from src.training.trainer import GANTrainer
-from src.visualization.grid_visualization import visualize_training_progress
+from src.utils import configure_experiment
 
 
 class VanillaGANTrainer(GANTrainer):
@@ -23,8 +22,8 @@ class VanillaGANTrainer(GANTrainer):
     def __init__(self, model, config, dataloader):
         super().__init__(model, config, dataloader)
 
-        # Create fixed noise for visualization
-        self.fixed_noise = torch.randn(16, self.model.latent_dim).to(self.device)
+        # Set number of samples for visualization
+        self.num_samples = 16
 
     def train_step(self, real_batch, iteration):
         """
@@ -88,16 +87,8 @@ class VanillaGANTrainer(GANTrainer):
         # Create dictionary of losses for logging
         losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}
 
-        # Generate and save images periodically
-        if iteration % 500 == 0:
-            visualize_training_progress(
-                self.model.generator,
-                self.device,
-                self.fixed_noise,
-                self.output_dir,
-                iteration,
-            )
-
+        if iteration % self.config["experiment"]["sample_interval"] == 0:
+            self.generate_samples(iteration, self.num_samples)
         return losses
 
 
@@ -120,24 +111,8 @@ def main():
     with open(args.config, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    # Set device
-    if args.gpu >= 0 and torch.cuda.is_available():
-        device = torch.device(f"cuda:{args.gpu}")
-        print(f"Using GPU {args.gpu}: {torch.cuda.get_device_name(args.gpu)}")
-    else:
-        device = torch.device("cpu")
-        print("Using CPU")
-
-    config["experiment"]["device"] = str(device)
-
-    # Set random seed for reproducibility
-    seed = config["experiment"].get("seed", 42)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+    # Configure experiment environment
+    config = configure_experiment(config, gpu_id=args.gpu)
 
     # Create dataloader
     dataloader = create_dataloader(config)

@@ -8,7 +8,10 @@ import logging
 from tqdm import tqdm
 
 import torch
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from src.models.base.base_gan import BaseGAN
+from src.utils import visualize_training_progress, create_training_animation
 
 
 class GANTrainer:
@@ -18,9 +21,10 @@ class GANTrainer:
     """
 
     def __init__(self, model, config, dataloader):
-        self.model = model
+        self.model: BaseGAN = model
+        self.dataloader: DataLoader = dataloader
+
         self.config = config
-        self.dataloader = dataloader
         self.device = torch.device(config["experiment"]["device"])
 
         # Training parameters
@@ -53,6 +57,8 @@ class GANTrainer:
             ],
         )
         self.logger = logging.getLogger(__name__)
+
+        self.iteration = 0
 
     def setup_optimizers(self):
         """
@@ -106,12 +112,12 @@ class GANTrainer:
         """
         Main training loop.
         """
+        self.logger.info("Using device: %s", self.config["experiment"]["device"])
         self.logger.info("Starting training for %d epochs", self.num_epochs)
-        self.iteration = 0
-        start_time = time.time()
 
+        start_time = time.time()
         for epoch in range(self.num_epochs):
-            self.logger.info("Starting epoch %d/%d", epoch+1, self.num_epochs)
+            self.logger.info("Starting epoch %d/%d", epoch + 1, self.num_epochs)
 
             for real_batch in tqdm(self.dataloader):
                 # Move data to device
@@ -130,7 +136,6 @@ class GANTrainer:
                 # Save model
                 if self.iteration % self.save_interval == 0:
                     self.save_checkpoint(epoch, self.iteration)
-                    self.generate_samples(self.iteration)
 
                 self.iteration += 1
 
@@ -142,14 +147,19 @@ class GANTrainer:
 
             # Save at the end of each epoch
             self.save_checkpoint(epoch, self.iteration, is_epoch_end=True)
-            self.generate_samples(self.iteration, is_epoch_end=True)
 
         total_time = time.time() - start_time
         self.logger.info("Training completed in %.2f hours", total_time / 3600)
 
-
         # Save final model
         self.save_checkpoint(self.num_epochs, self.iteration, is_final=True)
+
+        # Create animation
+        gif_path = create_training_animation(
+            experiment_dir=self.output_dir,
+            include_iteration_text=True,
+        )
+        self.logger.info("Created samples animation: %s", gif_path)
 
     def log_progress(self, losses, epoch, iteration):
         """
@@ -191,15 +201,21 @@ class GANTrainer:
         )
         self.logger.info("Model saved to %s", path)
 
-    def generate_samples(self, iteration, is_epoch_end=False):
+    def generate_samples(self, iteration: int, num_samples: int = 16) -> torch.Tensor:
         """
         Generate and save sample images.
         """
         self.model.eval()
         with torch.no_grad():
-            samples = self.model.generate_images(16)  # Generate 16 samples
+            samples = self.model.generate_images(num_samples)
 
-        # Save samples code would be implemented
-        # This requires visualization utilities
+        visualize_training_progress(
+            samples,
+            self.output_dir,
+            iteration,
+            nrow=8,
+        )
+
         self.logger.info("Generated samples at iteration %d", iteration)
         self.model.train()
+        return samples

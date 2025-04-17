@@ -4,8 +4,9 @@ experiment:
   seed: 42
   output_dir: ./outputs/vanilla_gan
   log_interval: 100
+  sample_interval: 500
   save_interval: 1000
-  num_epochs: 1
+  num_epochs: 3
   num_workers: 4
   device: cuda
 
