@@ -156,6 +156,25 @@ class WandbWriter:
         artifact.add_file(file_path)
         wandb.log_artifact(artifact, aliases=aliases or [])
 
+    def use_artifact(self, artifact_name, artifact_type=None, alias="latest"):
+        """
+        Download and use an artifact from wandb.
+
+        Args:
+            artifact_name (str): The name of the artifact, e.g., "project/model"
+            type (str, optional): The type of the artifact (e.g., "model", "dataset"). Default is None.
+            alias (str, optional): The alias or version to use (e.g., "latest", "v1"). Default is "latest".
+
+        Returns:
+            artifact_dir (str): Local directory where the artifact is downloaded.
+            artifact (wandb.Artifact): The artifact object itself.
+        """
+        # Compose artifact reference string
+        artifact_ref = f"{artifact_name}:{alias}" if alias else artifact_name
+        artifact = wandb.use_artifact(artifact_ref, type=artifact_type)
+        artifact_dir = artifact.download()
+        return artifact_dir, artifact
+
     def close(self):
         """Close the writer"""
         wandb.finish()
@@ -172,21 +191,21 @@ def setup_summary(config: dict, output_dir: str) -> Any:
     Returns:
         A writer object for logging metrics, or None if logging is disabled
     """
-    experiment_name = config.get("experiment", {}).get("name", None)
+    wandb_experiment = config.get("experiment", {}).get("name", None)
     logging_config = config.get("logging", {})
 
     # Setup wandb if specified
     if logging_config.get("use_wandb", False):
         # Get wandb configuration
         wandb_project = logging_config.get("wandb_project", "gan-research")
-        wandb_name = logging_config.get("wandb_name", None)
+        wandb_task = logging_config.get("wandb_task", None)
         wandb_config = logging_config.get("wandb_config", config)
 
         # Initialize wandb
         wandb.init(
             project=wandb_project,
-            group=experiment_name,
-            name=wandb_name,
+            group=wandb_experiment,
+            job_type=wandb_task,
             config=wandb_config,
             dir=output_dir,
         )

@@ -176,6 +176,7 @@ class GANTrainer(ABC):
                 file_path=gif_path,
                 aliases=["final"]
             )
+            self.writer.close()
 
     def generate_samples(self, num_samples: int = 16) -> torch.Tensor:
         """
