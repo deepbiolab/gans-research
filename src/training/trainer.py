@@ -169,6 +169,14 @@ class GANTrainer(ABC):
         )
         self.logger.info("Created samples animation: %s", gif_path)
 
+        if self.writer is not None:
+            self.writer.add_artifact(
+                artifact_name="training_animation",
+                artifact_type="animation",
+                file_path=gif_path,
+                aliases=["final"]
+            )
+
     def generate_samples(self, num_samples: int = 16) -> torch.Tensor:
         """
         Generate and save sample images.

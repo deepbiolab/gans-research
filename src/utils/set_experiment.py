@@ -136,7 +136,7 @@ class WandbWriter:
             name: Name of the image
             img_tensors: List or tensor of image tensors
             step: Global step value to record
-            dataformats: Data format of the image tensor
+            dataformats: Data format of the image tensor, this will used in tensorboard `add_images`
             nrow: Number of images displayed in each row of the grid
         """
         # Create a grid of images to control layout
@@ -149,6 +149,12 @@ class WandbWriter:
             # Fallback for non-standard tensor shapes
             images = [wandb.Image(img) for img in img_tensors]
             wandb.log({name: images}, step=step)
+
+    def add_artifact(self, artifact_name, artifact_type, file_path, aliases=None):
+        """Add an artifact to the writer."""
+        artifact = wandb.Artifact(artifact_name, type=artifact_type)
+        artifact.add_file(file_path)
+        wandb.log_artifact(artifact, aliases=aliases or [])
 
     def close(self):
         """Close the writer"""
@@ -166,20 +172,20 @@ def setup_summary(config: dict, output_dir: str) -> Any:
     Returns:
         A writer object for logging metrics, or None if logging is disabled
     """
+    experiment_name = config.get("experiment", {}).get("name", None)
     logging_config = config.get("logging", {})
 
     # Setup wandb if specified
     if logging_config.get("use_wandb", False):
         # Get wandb configuration
         wandb_project = logging_config.get("wandb_project", "gan-research")
-        wandb_entity = logging_config.get("wandb_entity", None)
         wandb_name = logging_config.get("wandb_name", None)
         wandb_config = logging_config.get("wandb_config", config)
 
         # Initialize wandb
         wandb.init(
             project=wandb_project,
-            entity=wandb_entity,
+            group=experiment_name,
             name=wandb_name,
             config=wandb_config,
             dir=output_dir,
