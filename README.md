@@ -93,12 +93,73 @@ pip install -e .
 
 ## Usage
 
+### Training
 Each GAN implementation has its own training script in the `experiments` directory:
 
 ```bash
 # Example: Train a basic GAN on MNIST
 python experiments/stage1_basic/train_vanilla_gan.py
 ```
+
+### Inference
+
+This project supports flexible GAN inference with dynamic architecture selection and robust logging.  
+You can easily generate sample images from any registered GAN model using a unified interface.
+
+**Command-Line Inference**
+
+To generate images using a trained GAN model:
+
+```
+python experiments/inference.py \
+  --config path/to/your_config.yaml \
+  --model_name dcgan \
+  --checkpoint outputs/dcgan/checkpoints/final_model.pth \
+  --num_samples 32 \
+  --out outputs/dcgan/results/sample_grid.png
+```
+
+**Arguments:**
+
+- `--config`: Path to your YAML configuration file. (**required**)
+- `--model_name`: Name of the GAN model to use (e.g., `vanilla_gan`, `dcgan`, `wgan`). Overrides the config if specified.
+- `--checkpoint`: Path to the trained model checkpoint. Overrides the config if specified.
+- `--num_samples`: Number of images to generate. Overrides the config if specified.
+- `--out`: Output path for the generated image grid. If not set, a default path will be used.
+- `--gpu`: GPU ID to use (`-1` for CPU).
+
+**Configuration Example**
+
+Your YAML config should include the following fields:
+
+```yaml
+inference:
+  model_name: vanilla_gan      # or dcgan, wgan, etc.
+  checkpoint_path: outputs/vanilla_gan/checkpoints/final_model.pth
+  num_samples: 16
+experiment:
+  output_dir: outputs/vanilla_gan
+```
+
+
+**Adding New Models**
+
+To register a new GAN model, add it to `MODEL_REGISTRY` in `src/models/__init__.py`:
+
+```python
+from .my_custom_gan import MyCustomGAN
+
+MODEL_REGISTRY = {
+    "vanilla_gan": VanillaGAN,
+    "dcgan": DCGAN,
+    "wgan": WGAN,
+    "my_custom_gan": MyCustomGAN,
+}
+```
+
+
+**Note:**  
+Generated images will be saved as a grid (default: `inference_result.png`), with grayscale images automatically converted to RGB for visualization.
 
 
 
