@@ -35,7 +35,7 @@ training:
 evaluation:
   use_fid: false
   fid_batch_size: 64
-  fid_num_samples: 100
+  fid_num_samples: 2000
   eval_epoch_interval: 1
 
 logging:

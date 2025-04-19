@@ -26,6 +26,8 @@ def setup_device(gpu_id: int = -1) -> Tuple[torch.device, str]:
     """
     if gpu_id >= 0 and torch.cuda.is_available():
         device = torch.device(f"cuda:{gpu_id}")
+    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
+        return torch.device("mps")
     else:
         device = torch.device("cpu")
 

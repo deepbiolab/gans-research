@@ -96,11 +96,7 @@ class FIDCalculator:
     """
 
     def __init__(self, device=None):
-        self.device = (
-            device
-            if device is not None
-            else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        )
+        self.device = (device if device is not None else torch.device("cpu"))
         self.feature_extractor = InceptionV3Features().to(self.device)
         self.feature_extractor.eval()
 
@@ -115,11 +111,17 @@ class FIDCalculator:
         Returns:
             features: Numpy array of extracted features
         """
+        batch_size = dataloader.batch_size
+        if num_samples is not None and batch_size is not None:
+            total = int(np.ceil(num_samples / batch_size)) - 1
+        else:
+            total = None  # fallback to default tqdm behavior
+
         features_list = []
         samples_seen = 0
 
         with torch.no_grad():
-            for batch in tqdm(dataloader):
+            for batch in tqdm(dataloader, total=total, desc="Evaluate FID"):
                 if isinstance(batch, (list, tuple)):
                     images = batch[0].to(self.device)
                 else:
