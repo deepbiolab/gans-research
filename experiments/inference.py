@@ -14,7 +14,7 @@ def load_model(config, logger):
     """
     Load a pre-trained GAN model based on the configuration.
     """
-    model_name = config["inference"].get("model_name", "vanilla_gan")
+    model_name = config["model"].get("name", "vanilla_gan")
     checkpoint_path = config["inference"]["checkpoint_path"]
 
     if model_name not in MODEL_REGISTRY:

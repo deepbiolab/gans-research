@@ -39,7 +39,6 @@ evaluation:
   eval_epoch_interval: 1
 
 inference:
-  model_name: vanilla_gan
   checkpoint_path: ./outputs/vanilla_gan/checkpoints/final_model.pth
   num_samples: 16
 
