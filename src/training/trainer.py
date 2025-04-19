@@ -48,7 +48,7 @@ class GANTrainer(ABC):
         self.log_interval = config["experiment"].get("log_interval", 100)
         self.save_interval = config["experiment"].get("save_interval", 1000)
         self.sample_interval = config["experiment"].get("sample_interval", 500)
-        self.num_samples = config["experiment"].get("num_samples", 16)
+        self.sampling_num = config["experiment"].get("sampling_num", 16)
 
         # Setup output directory
         self.setup_directory()
@@ -220,13 +220,13 @@ class GANTrainer(ABC):
             )
             self.writer.close()
 
-    def generate_samples(self, num_samples: int = 16) -> torch.Tensor:
+    def generate_samples(self, sampling_num: int = 16) -> torch.Tensor:
         """
         Generate and save sample images.
         """
         self.model.eval()
         with torch.no_grad():
-            samples = self.model.generate_images(num_samples)
+            samples = self.model.generate_images(sampling_num)
 
         self.model.train()
         return samples
@@ -250,7 +250,7 @@ class GANTrainer(ABC):
         self.logger.info(log_str)
 
         # Generate samples
-        samples = self.generate_samples(self.num_samples)
+        samples = self.generate_samples(self.sampling_num)
         grid = make_grid(samples, nrow=nrow)
 
         # Save grid of generated images

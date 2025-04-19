@@ -4,7 +4,7 @@ experiment:
   seed: 42
   output_dir: ./outputs/vanilla_gan
   log_interval: 100
-  num_samples: 16
+  sampling_num: 16
   save_interval: 1000
   num_epochs: 3
   num_workers: 4
