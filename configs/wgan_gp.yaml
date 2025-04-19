@@ -34,6 +34,12 @@ training:
   n_critic: 5  # Update critic 5 times for each generator update
   lambda_gp: 10.0  # Gradient penalty coefficient
 
+evaluation:
+  use_fid: true
+  fid_batch_size: 64
+  fid_num_samples: 100
+  eval_epoch_interval: 1
+
 logging:
   use_tensorboard: true
   use_wandb: false

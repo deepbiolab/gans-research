@@ -2,10 +2,10 @@
 
 import numpy as np
 from scipy import linalg
-
+from tqdm import tqdm
 import torch
 from torch import nn
-from torchvision.models import inception_v3
+from torchvision.models import inception_v3, Inception_V3_Weights
 
 
 class InceptionV3Features(nn.Module):
@@ -17,7 +17,7 @@ class InceptionV3Features(nn.Module):
     def __init__(self):
         super().__init__()
         # Load pretrained Inception model
-        self.inception = inception_v3(pretrained=True)
+        self.inception = inception_v3(weights=Inception_V3_Weights.DEFAULT)
         self.inception.eval()
         # We don't need the classification part
         self.inception.fc = nn.Identity()
@@ -119,11 +119,15 @@ class FIDCalculator:
         samples_seen = 0
 
         with torch.no_grad():
-            for batch in dataloader:
+            for batch in tqdm(dataloader):
                 if isinstance(batch, (list, tuple)):
                     images = batch[0].to(self.device)
                 else:
                     images = batch.to(self.device)
+
+                # convert to RGB if necessary
+                if images.shape[1] == 1:
+                    images = images.repeat(1, 3, 1, 1)
 
                 # Extract features
                 batch_features = self.feature_extractor(images)
@@ -174,6 +178,9 @@ class FIDCalculator:
 
                 # Generate images
                 fake_images = generator(z)
+
+                if fake_images.shape[1] == 1:
+                    fake_images = fake_images.repeat(1, 3, 1, 1)
 
                 # Extract features
                 batch_features = self.feature_extractor(fake_images)

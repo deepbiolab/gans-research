@@ -198,7 +198,7 @@ def setup_summary(config: dict, output_dir: str) -> Any:
     if logging_config.get("use_wandb", False):
         # Get wandb configuration
         wandb_project = logging_config.get("wandb_project", "gan-research")
-        wandb_task = logging_config.get("wandb_task", None)
+        wandb_task = logging_config.get("wandb_task", "train")
         wandb_config = logging_config.get("wandb_config", config)
 
         # Initialize wandb

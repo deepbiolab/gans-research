@@ -10,6 +10,7 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 from src.models.base.base_gan import BaseGAN
+from src.metrics.fid import FIDCalculator
 from src.utils.set_experiment import setup_logger, setup_summary
 from src.utils.visualization import make_grid, save_grid, create_animation
 
@@ -20,13 +21,23 @@ class GANTrainer(ABC):
     This provides a common interface for training different GAN variants.
     """
 
-    def __init__(self, model: BaseGAN, config: dict, dataloader: DataLoader) -> None:
+    def __init__(
+        self,
+        model: BaseGAN,
+        config: dict,
+        train_dataloader: DataLoader,
+        valid_dataloader: DataLoader,
+    ) -> None:
         self.config = config
         self.device = torch.device(config["experiment"]["device"])
 
         # Setup model and dataloader
         self.model = model
-        self.dataloader = dataloader
+        self.train_dataloader = train_dataloader
+        self.valid_dataloader = valid_dataloader
+
+        # Setup evaluation parameters, fid
+        self.setup_evaluation()
 
         # Setup optimizers
         self.setup_optimizers()
@@ -47,6 +58,18 @@ class GANTrainer(ABC):
 
         # Setup logging
         self.logger = setup_logger(self.output_dir)
+
+    def setup_evaluation(self):
+        """
+        Setup evaluation parameters, fid
+        """
+        eval_config = self.config.get("evaluation", {})
+        self.eval_fid = eval_config.get("use_fid", False)
+        self.fid_batch_size = eval_config.get("fid_batch_size", 64)
+        self.fid_num_samples = eval_config.get("fid_num_samples", 1000)
+        self.eval_epoch_interval = eval_config.get("eval_epoch_interval", 1)
+        if self.eval_fid:
+            self.fid_calculator = FIDCalculator(device=self.device)
 
     def setup_directory(self):
         """
@@ -114,6 +137,20 @@ class GANTrainer(ABC):
             dict: Dictionary of losses
         """
 
+    def evaluate_fid(self, iteration: int):
+        """Evaluate FID score on the validation dataset."""
+        fid_score = self.fid_calculator.calculate_fid(
+            real_dataloader=self.valid_dataloader,
+            generator=self.model.generator,
+            num_samples=self.fid_num_samples,
+            batch_size=64,
+            latent_dim=self.model.latent_dim,
+        )
+        self.logger.info("[FID] Iteration %d: FID=%.4f", iteration, fid_score)
+        if self.writer is not None:
+            self.writer.add_scalar("eval/fid", fid_score, iteration)
+        return fid_score
+
     def train(self):
         """
         Main training loop.
@@ -125,7 +162,7 @@ class GANTrainer(ABC):
         for epoch in range(self.num_epochs):
             self.logger.info("Starting epoch %d/%d", epoch + 1, self.num_epochs)
 
-            for real_batch in tqdm(self.dataloader):
+            for real_batch in tqdm(self.train_dataloader):
                 # Move data to device
                 if isinstance(real_batch, (list, tuple)):
                     real_batch = [item.to(self.device) for item in real_batch]
@@ -143,6 +180,7 @@ class GANTrainer(ABC):
                 if self.iteration % self.save_interval == 0:
                     self.save_checkpoint(epoch, self.iteration)
 
+                # Update iteration counter
                 self.iteration += 1
 
             # Update learning rate if scheduler is used
@@ -153,6 +191,10 @@ class GANTrainer(ABC):
 
             # Save at the end of each epoch
             self.save_checkpoint(epoch, self.iteration, is_epoch_end=True)
+
+            # Evaluate FID score
+            if self.eval_fid and epoch % self.eval_epoch_interval == 0:
+                self.evaluate_fid(self.iteration)
 
         total_time = time.time() - start_time
         self.logger.info("Training completed in %.2f hours", total_time / 3600)
@@ -174,7 +216,7 @@ class GANTrainer(ABC):
                 artifact_name="training_animation",
                 artifact_type="animation",
                 file_path=gif_path,
-                aliases=["final"]
+                aliases=["final"],
             )
             self.writer.close()
 

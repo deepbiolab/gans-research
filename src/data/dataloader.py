@@ -43,16 +43,25 @@ def get_dataset(config):
 
     # Create dataset based on name
     if dataset_name == "mnist":
-        dataset = datasets.MNIST(
+        train_dataset = datasets.MNIST(
             root="./datasets", train=True, download=True, transform=transform
+        )
+        test_dataset = datasets.MNIST(
+            root="./datasets", train=False, download=True, transform=transform
         )
     elif dataset_name == "fashion_mnist":
-        dataset = datasets.FashionMNIST(
+        train_dataset = datasets.FashionMNIST(
             root="./datasets", train=True, download=True, transform=transform
         )
+        test_dataset = datasets.FashionMNIST(
+            root="./datasets", train=False, download=True, transform=transform
+        )
     elif dataset_name == "cifar10":
-        dataset = datasets.CIFAR10(
+        train_dataset = datasets.CIFAR10(
             root="./datasets", train=True, download=True, transform=transform
+        )
+        test_dataset = datasets.CIFAR10(
+            root="./datasets", train=False, download=True, transform=transform
         )
     elif dataset_name == "celeba":
         # For CelebA, we need center crop before resize
@@ -65,9 +74,13 @@ def get_dataset(config):
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
             ]
         )
-        dataset = datasets.CelebA(
+        train_dataset = datasets.CelebA(
             root="./data/downloaded", split="train", download=True, transform=transform
         )
+        test_dataset = datasets.CelebA(
+            root="./data/downloaded", split="test", download=True, transform=transform
+        )
+        
     elif dataset_name in ["celeba_hq", "ffhq"]:
         # For high-res datasets like CelebA-HQ and FFHQ
         # Note: These datasets require external download and preprocessing
@@ -79,7 +92,7 @@ def get_dataset(config):
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
-    return dataset
+    return train_dataset, test_dataset
 
 
 def create_dataloader(config):
@@ -92,15 +105,24 @@ def create_dataloader(config):
     Returns:
         dataloader: PyTorch DataLoader
     """
-    dataset = get_dataset(config)
+    train_dataset, valid_dataset = get_dataset(config)
     batch_size = config["data"]["batch_size"]
     num_workers = config["experiment"].get("num_workers", 4)
 
-    return DataLoader(
-        dataset,
+    train_dataloader = DataLoader(
+        train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
         pin_memory=True,
         drop_last=True,  # Drop the last incomplete batch
     )
+    valid_dataloader = DataLoader(
+        valid_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True,
+        drop_last=False,  # Do not drop the last incomplete batch
+    )
+    return train_dataloader, valid_dataloader

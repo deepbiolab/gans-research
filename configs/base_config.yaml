@@ -31,6 +31,12 @@ training:
   scheduler_gamma: 0.99
   n_critic: 1  # Number of discriminator updates per generator update
 
+evaluation:
+  use_fid: true
+  fid_batch_size: 64
+  fid_num_samples: 100
+  eval_epoch_interval: 1
+
 logging:
   use_tensorboard: true
   use_wandb: false

@@ -20,8 +20,14 @@ class VanillaGANTrainer(GANTrainer):
     Inherits from the base trainer and implements the train_step method.
     """
 
-    def __init__(self, model: VanillaGAN, config: dict, dataloader: DataLoader):
-        super().__init__(model, config, dataloader)
+    def __init__(
+        self,
+        model: VanillaGAN,
+        config: dict,
+        train_dataloader: DataLoader,
+        valid_dataloader: DataLoader,
+    ):
+        super().__init__(model, config, train_dataloader, valid_dataloader)
 
     def train_step(self, real_batch, iteration):
         """
@@ -83,7 +89,7 @@ class VanillaGANTrainer(GANTrainer):
         self.g_optimizer.step()
 
         # Create dictionary of losses for logging
-        losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}  
+        losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}
         return losses
 
 
@@ -110,13 +116,14 @@ def main():
     config = configure_experiment(config, gpu_id=args.gpu)
 
     # Create dataloader
-    dataloader = create_dataloader(config)
+    dataloaders = create_dataloader(config)
+    train_dataloader, valid_dataloader = dataloaders
 
     # Create model
     model = VanillaGAN(config)
 
     # Create trainer and train
-    trainer = VanillaGANTrainer(model, config, dataloader)
+    trainer = VanillaGANTrainer(model, config, train_dataloader, valid_dataloader)
     trainer.train()
 
 

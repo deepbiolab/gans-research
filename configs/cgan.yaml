@@ -33,6 +33,12 @@ training:
   use_scheduler: false
   n_critic: 1
 
+evaluation:
+  use_fid: true
+  fid_batch_size: 64
+  fid_num_samples: 100
+  eval_epoch_interval: 1
+
 logging:
   use_tensorboard: true
   use_wandb: false
