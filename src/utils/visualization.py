@@ -123,7 +123,7 @@ def create_animation(
 
     # Construct paths
     samples_dir = os.path.join(experiment_dir, samples_subdir)
-    output_path = os.path.join(experiment_dir, "samples_animation.gif")
+    output_path = os.path.join(experiment_dir, "training_animation.gif")
 
     # Find all matching image files
     image_files = glob.glob(os.path.join(samples_dir, pattern))
