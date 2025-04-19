@@ -152,6 +152,32 @@ class WandbWriter:
             images = [wandb.Image(img) for img in img_tensors]
             wandb.log({name: images}, step=step)
 
+    def add_image(self, name, img_tensor, step, dataformats="CHW"):
+        """
+        Add a single image to the writer.
+
+        Args:
+            name: Name of the image
+            img_tensor: A single image tensor (CHW or HWC) or numpy array
+            step: Global step value to record
+            dataformats: Data format of the image tensor ('CHW', 'HWC')
+        """
+
+        # If tensor, move to cpu and detach
+        if isinstance(img_tensor, torch.Tensor):
+            img = img_tensor.detach().cpu()
+            # If CHW, convert to HWC for wandb.Image
+            if dataformats == "CHW" and img.dim() == 3:
+                img = img.permute(1, 2, 0)
+            # Normalize to [0, 1] if needed
+            if img.max() > 1.0 or img.min() < 0.0:
+                img = (img + 1.0) / 2.0  # Assuming input in [-1, 1]
+            img = img.numpy()
+        else:
+            img = img_tensor  # Assume already numpy array in HWC
+
+        wandb.log({name: wandb.Image(img)}, step=step)
+
     def add_artifact(self, artifact_name, artifact_type, file_path, aliases=None):
         """Add an artifact to the writer."""
         artifact = wandb.Artifact(artifact_name, type=artifact_type)
