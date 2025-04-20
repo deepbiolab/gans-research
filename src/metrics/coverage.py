@@ -129,7 +129,6 @@ class PrecisionRecallCalculator:
             dataloader=real_dataloader,
             device=self.device,
             num_samples=num_samples,
-            desc="Extracting real features for PR",
         )
 
         # Extract features from generated images
@@ -140,7 +139,6 @@ class PrecisionRecallCalculator:
             num_samples=num_samples,
             batch_size=batch_size,
             latent_dim=latent_dim,
-            desc="Extracting generated features for PR",
         )
 
         # Compute precision and recall

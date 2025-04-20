@@ -91,7 +91,6 @@ class FIDCalculator:
             dataloader=real_dataloader,
             device=self.device,
             num_samples=num_samples,
-            desc="Extracting real features for FID",
         )
 
         # Extract features from generated images
@@ -102,7 +101,6 @@ class FIDCalculator:
             num_samples=num_samples,
             batch_size=batch_size,
             latent_dim=latent_dim,
-            desc="Extracting generated features for FID",
         )
 
         # Calculate FID score

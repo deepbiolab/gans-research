@@ -6,7 +6,7 @@ experiment:
   log_interval: 100
   sampling_num: 16
   save_interval: 1000
-  num_epochs: 50
+  num_epochs: 5
   num_workers: 4
   device: cuda
 
@@ -33,7 +33,7 @@ training:
   n_critic: 1  # Standard GAN updates G and D equally
 
 evaluation:
-  use_fid: false
+  use_fid: true
   batch_size: 64
   num_samples: 10000
   eval_epoch_interval: 1
