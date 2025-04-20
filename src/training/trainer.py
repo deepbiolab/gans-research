@@ -10,7 +10,7 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 from src.models.base.base_gan import BaseGAN
-from src.metrics.fid import FIDCalculator
+from src.metrics.quality import FIDCalculator
 from src.utils.set_experiment import setup_logger, setup_summary
 from src.utils.visualization import make_grid, save_grid, create_animation
 
@@ -65,8 +65,8 @@ class GANTrainer(ABC):
         """
         eval_config = self.config.get("evaluation", {})
         self.eval_fid = eval_config.get("use_fid", False)
-        self.fid_batch_size = eval_config.get("fid_batch_size", 64)
-        self.fid_num_samples = eval_config.get("fid_num_samples", 1000)
+        self.batch_size = eval_config.get("batch_size", 64)
+        self.num_samples = eval_config.get("num_samples", 1000)
         self.eval_epoch_interval = eval_config.get("eval_epoch_interval", 1)
         if self.eval_fid:
             self.fid_calculator = FIDCalculator(device=self.device)
@@ -142,8 +142,8 @@ class GANTrainer(ABC):
         fid_score = self.fid_calculator.calculate_fid(
             real_dataloader=self.valid_dataloader,
             generator=self.model.generator,
-            num_samples=self.fid_num_samples,
-            batch_size=64,
+            num_samples=self.num_samples,
+            batch_size=self.batch_size,
             latent_dim=self.model.latent_dim,
         )
         self.logger.info("[FID] Iteration %d: FID=%.4f", iteration, fid_score)

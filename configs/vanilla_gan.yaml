@@ -33,9 +33,9 @@ training:
   n_critic: 1  # Standard GAN updates G and D equally
 
 evaluation:
-  use_fid: true
-  fid_batch_size: 64
-  fid_num_samples: 2000
+  use_fid: false
+  batch_size: 64
+  num_samples: 10000
   eval_epoch_interval: 1
 
 inference:

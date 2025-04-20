@@ -8,6 +8,8 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import matplotlib.pyplot as plt
+from umap import UMAP
+from sklearn.manifold import TSNE
 
 import torch
 import torchvision
@@ -48,7 +50,7 @@ def save_grid(grid: torch.Tensor, filepath: str) -> None:
 
     # Convert tensor to numpy array
     grid = grid.cpu().detach().numpy()
-    
+
     # Convert from CHW to HWC format
     grid = np.transpose(grid, (1, 2, 0))
 
@@ -68,14 +70,12 @@ def save_grid(grid: torch.Tensor, filepath: str) -> None:
     grid_resized.save(filepath, dpi=(300, 300), optimize=True)
 
 
-def display_grid(
-    grid: torch.Tensor, title: str = None, figsize: tuple = (10, 10)
-):
+def display_grid(grid: torch.Tensor, title: str = None, figsize: tuple = (10, 10)):
     """Display a grid of images."""
 
     # Convert tensor to numpy array
     grid = grid.cpu().detach().numpy()
-    
+
     # Convert from CHW to HWC format
     grid = np.transpose(grid, (1, 2, 0))
 
@@ -183,3 +183,129 @@ def create_animation(
     )
 
     return output_path
+
+
+def visualize_feature_space(
+    real_features, fake_features, eval_dir, method="tsne", writer=None
+):
+    """
+    Visualize real and generated samples in feature space using dimensionality reduction.
+
+    Args:
+        real_features: Features from real images
+        fake_features: Features from generated images
+        method: Dimensionality reduction method ('tsne' or 'umap')
+        logger: Logger instance
+        writer: Summary writer for logging visualizations
+
+    Returns:
+        fig: Figure object with the visualization
+    """
+    # Subsample features if there are too many
+    max_samples = 1000
+    if len(real_features) > max_samples:
+        indices = np.random.choice(len(real_features), max_samples, replace=False)
+        real_features_sub = real_features[indices]
+    else:
+        real_features_sub = real_features
+
+    if len(fake_features) > max_samples:
+        indices = np.random.choice(len(fake_features), max_samples, replace=False)
+        fake_features_sub = fake_features[indices]
+    else:
+        fake_features_sub = fake_features
+
+    # Combine features
+    combined_features = np.vstack([real_features_sub, fake_features_sub])
+
+    # Create labels
+    real_labels = np.ones(len(real_features_sub))
+    fake_labels = np.zeros(len(fake_features_sub))
+    labels = np.hstack([real_labels, fake_labels])
+
+    # Apply dimensionality reduction
+    if method == "umap":
+        reducer = UMAP(n_neighbors=15, min_dist=0.1, n_components=2, random_state=42)
+        embedding = reducer.fit_transform(combined_features)
+    else:
+        tsne = TSNE(n_components=2, perplexity=30, max_iter=1000, random_state=42)
+        embedding = tsne.fit_transform(combined_features)
+
+    # Create visualization
+    fig, ax = plt.subplots(figsize=(10, 8))
+    scatter = ax.scatter(
+        embedding[:, 0],
+        embedding[:, 1],
+        c=labels,
+        cmap="coolwarm",
+        alpha=0.7,
+        s=5,
+    )
+
+    # Add legend and title
+    method_name = "UMAP" if method == "umap" else "t-SNE"
+    legend = ax.legend(
+        handles=scatter.legend_elements()[0],
+        labels=["Generated", "Real"],
+        title="Data Type",
+    )
+    ax.add_artist(legend)
+    ax.set_title(f"Feature Space Visualization using {method_name}")
+    ax.set_xlabel(f"{method_name} Dimension 1")
+    ax.set_ylabel(f"{method_name} Dimension 2")
+
+    # Log to writer if available
+    if writer is not None:
+        writer.add_image(f"feature_space_{method_name.lower()}", fig, 0)
+
+    # Save figure
+    fig.savefig(os.path.join(eval_dir, f"feature_space_{method}.png"))
+    plt.close(fig)
+
+
+def visualize_metrics(metrics, eval_dir, writer=None):
+    """
+    Visualize evaluation metrics in a bar chart.
+
+    Args:
+        metrics: Dictionary containing metrics to visualize
+        logger: Logger instance
+        writer: Summary writer for logging visualizations
+
+    Returns:
+        fig: Figure object with the visualization
+    """
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Extract values
+    metric_names = list(metrics.keys())
+    values = list(metrics.values())
+
+    # Create bar chart
+    bars = ax.bar(metric_names, values, color="skyblue")
+
+    # Add values on top of bars
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            height + 0.01,
+            f"{height:.4f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+        )
+
+    # Add labels and title
+    ax.set_ylabel("Score")
+    ax.set_title("GAN Evaluation Metrics")
+    ax.set_ylim(0, max(values) * 1.2)  # Add some space above bars
+
+    # Log to writer if available
+    if writer is not None:
+        writer.add_image("summary_chart", fig, 0)
+
+    # Save figure
+    fig.savefig(os.path.join(eval_dir, "metrics_summary.png"))
+    plt.close(fig)
