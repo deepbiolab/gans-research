@@ -4,7 +4,7 @@ experiment:
   seed: 42
   output_dir: ./outputs/wgan
   log_interval: 100
-  sample_interval: 500
+  sampling_num: 16
   save_interval: 1000
   num_epochs: 100
   num_workers: 4
@@ -33,10 +33,14 @@ training:
   weight_clip: 0.01  # Weight clipping parameter
 
 evaluation:
-  use_fid: true
+  use_fid: false
   fid_batch_size: 64
-  fid_num_samples: 100
+  fid_num_samples: 2000
   eval_epoch_interval: 1
+
+inference:
+  checkpoint_path: ./outputs/vanilla_gan/checkpoints/final_model.pth
+  num_samples: 16
 
 logging:
   use_tensorboard: true

@@ -95,6 +95,7 @@ def main():
     parser = argparse.ArgumentParser(description="GAN Inference")
     parser.add_argument("--config", type=str, required=True, help="Path to config yaml")
     parser.add_argument("--gpu", type=int, default=-1, help="GPU id, -1 for CPU")
+    parser.add_argument("--seed", type=int, default=42, help="Seed")
     parser.add_argument(
         "--num_samples", type=int, default=None, help="Override number of samples"
     )
@@ -113,7 +114,7 @@ def main():
     # Load config
     with open(args.config, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
-    config = configure_experiment(config, gpu_id=args.gpu)
+    config = configure_experiment(config, gpu_id=args.gpu, seed=args.seed)
 
     # Override config with command-line options if provided
     if args.checkpoint is not None:
