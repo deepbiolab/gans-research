@@ -8,9 +8,10 @@ import yaml
 import torch
 from torch.utils.data import DataLoader
 
-from src.models.vanilla_gan import VanillaGAN
+from src.models import VanillaGAN
+from src.losses import VanillaGANLoss
+from src.training import GANTrainer
 from src.data.dataloader import create_dataloader
-from src.training.trainer import GANTrainer
 from src.utils.set_experiment import configure_experiment
 
 
@@ -28,6 +29,7 @@ class VanillaGANTrainer(GANTrainer):
         valid_dataloader: DataLoader,
     ):
         super().__init__(model, config, train_dataloader, valid_dataloader)
+        self.criterion = VanillaGANLoss()
 
     def train_step(self, real_batch, iteration):
         """
@@ -63,7 +65,7 @@ class VanillaGANTrainer(GANTrainer):
         fake_preds = self.model.discriminator(fake_imgs.detach())
 
         # Calculate discriminator loss
-        d_loss = self.model.discriminator_loss(real_preds, fake_preds)
+        d_loss = self.criterion.discriminator_loss(real_preds, fake_preds)
 
         # Backpropagate and optimize
         d_loss.backward()
@@ -82,7 +84,7 @@ class VanillaGANTrainer(GANTrainer):
         fake_preds = self.model.discriminator(fake_imgs)
 
         # Calculate generator loss
-        g_loss = self.model.generator_loss(fake_preds)
+        g_loss = self.criterion.generator_loss(fake_preds)
 
         # Backpropagate and optimize
         g_loss.backward()

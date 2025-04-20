@@ -46,14 +46,6 @@ class BaseGAN(nn.Module, ABC):
 
         return images
 
-    @abstractmethod
-    def generator_loss(self, fake_pred, *args, **kwargs):
-        """Calculate the loss for the generator."""
-
-    @abstractmethod
-    def discriminator_loss(self, real_pred, fake_pred, *args, **kwargs):
-        """Calculate the loss for the discriminator/critic."""
-
     def save(self, path):
         """Save the model."""
         torch.save(
