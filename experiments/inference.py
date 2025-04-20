@@ -5,7 +5,7 @@ import argparse
 import logging
 import yaml
 
-from src.models import MODEL_REGISTRY
+from src.models import AutoModel
 from src.utils.set_experiment import configure_experiment, setup_logger
 from src.utils.visualization import make_grid, save_grid
 
@@ -17,29 +17,41 @@ def load_model(config, logger):
     model_name = config["model"].get("name", "vanilla_gan")
     checkpoint_path = config["inference"]["checkpoint_path"]
 
-    if model_name not in MODEL_REGISTRY:
-        logger.error(
-            f"Unknown model: {model_name}. Available: {list(MODEL_REGISTRY.keys())}"
-        )
-        raise ValueError(f"Unknown model: {model_name}")
+    logger.info(f"Using model: {model_name}")
+    device = config["experiment"]["device"]
 
-    gan_model = MODEL_REGISTRY[model_name]
-    logger.info(f"Using model: {model_name} ({gan_model.__name__})")
-    model = gan_model(config)
-    model.load(checkpoint_path)
+    try:
+        model = AutoModel.from_pretrained(
+            model_name=model_name,
+            path=checkpoint_path,
+            map_location=device,
+            config=config,
+        )
+        logger.info(f"Successfully loaded model from {checkpoint_path}")
+    except ValueError as e:
+        logger.error(str(e))
+        raise
+    except Exception as e:
+        logger.error(f"Failed to load model: {str(e)}")
+        raise
+
     model.eval()
     return model
 
 
-def infer_and_save(model, config, logger, output_path=None, num_samples=None):
+def generate(model, config, logger, num_samples=None):
     """
-    Generate images using the model and save them to a file.
-    """
-    output_dir = config["experiment"]["output_dir"]
-    result_dir = os.path.join(output_dir, "results")
-    os.makedirs(result_dir, exist_ok=True)
-    result_path = output_path or os.path.join(result_dir, "inference_result.png")
+    Generate images using the model.
 
+    Args:
+        model: The GAN model
+        config: Configuration dictionary
+        logger: Logger instance
+        num_samples: Override number of samples to generate
+
+    Returns:
+        Generated images tensor
+    """
     nsamples = num_samples or config["inference"]["num_samples"]
     logger.info(f"Generating {nsamples} samples...")
     images = model.generate_images(batch_size=nsamples)
@@ -48,9 +60,33 @@ def infer_and_save(model, config, logger, output_path=None, num_samples=None):
     if images.shape[1] == 1:
         images = images.repeat(1, 3, 1, 1)
 
-    grid = make_grid(images, nrow=8)
+    return images
+
+
+def save_images(images, config, logger, output_path=None, nrow=8):
+    """
+    Save generated images to file.
+
+    Args:
+        images: Generated image tensor
+        config: Configuration dictionary
+        logger: Logger instance
+        output_path: Override path to save images
+        nrow: Number of images per row in the grid
+
+    Returns:
+        Path to the saved image file
+    """
+    output_dir = config["experiment"]["output_dir"]
+    result_dir = os.path.join(output_dir, "results")
+    os.makedirs(result_dir, exist_ok=True)
+    result_path = output_path or os.path.join(result_dir, "inference_result.png")
+
+    grid = make_grid(images, nrow=nrow)
     save_grid(grid, result_path)
     logger.info(f"Saved inference result to {result_path}")
+
+    return result_path
 
 
 def main():
@@ -85,7 +121,7 @@ def main():
     if args.num_samples is not None:
         config["inference"]["num_samples"] = args.num_samples
     if args.model_name is not None:
-        config["inference"]["model_name"] = args.model_name
+        config["model"]["name"] = args.model_name
 
     # Setup logger (logs to both file and console)
     output_dir = config["experiment"]["output_dir"]
@@ -99,12 +135,16 @@ def main():
     logger.info(f"Config: {args.config}")
     logger.info(f"Checkpoint: {config['inference']['checkpoint_path']}")
     logger.info(f"Num samples: {config['inference']['num_samples']}")
-    logger.info(f"Model name: {config['inference'].get('model_name', 'vanilla_gan')}")
+    logger.info(f"Model name: {config['model']['name']}")
 
     model = load_model(config, logger)
-    infer_and_save(
-        model, config, logger, output_path=args.out, num_samples=args.num_samples
-    )
+
+    # Generate images
+    images = generate(model, config, logger, num_samples=args.num_samples)
+
+    # Save images
+    save_images(images, config, logger, output_path=args.out)
+
     logger.info("Inference complete.")
 
 

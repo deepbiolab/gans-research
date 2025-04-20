@@ -46,19 +46,19 @@ class BaseGAN(nn.Module, ABC):
 
         return images
 
-    def save(self, path):
-        """Save the model."""
-        torch.save(
-            {
-                "generator_state_dict": self.generator.state_dict(),
-                "discriminator_state_dict": self.discriminator.state_dict(),
-                "config": self.config,
-            },
-            path,
-        )
-
-    def load(self, path):
-        """Load the model."""
-        checkpoint = torch.load(path, map_location=self.device)
-        self.generator.load_state_dict(checkpoint["generator_state_dict"])
-        self.discriminator.load_state_dict(checkpoint["discriminator_state_dict"])
+    @classmethod
+    def from_pretrained(cls, path, map_location=None, **kwargs):
+        """Load a pre-trained model from a checkpoint."""
+        checkpoint = torch.load(path, map_location=map_location)
+        config = kwargs.get("config", checkpoint.get("config", {}))
+        
+        # Create new model instance
+        model = cls(config)
+        model.build_generator()
+        model.build_discriminator()
+        
+        # Loading weights
+        model.generator.load_state_dict(checkpoint["generator_state_dict"])
+        model.discriminator.load_state_dict(checkpoint["discriminator_state_dict"])
+        
+        return model
