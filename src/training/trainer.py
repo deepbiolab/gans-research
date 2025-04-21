@@ -160,7 +160,9 @@ class GANTrainer(ABC):
         fake_preds = self.model.discriminator(fake_imgs.detach())
 
         # Calculate discriminator loss
-        d_loss = self.criterion.discriminator_loss(real_preds, fake_preds)
+        real_labels = torch.ones_like(real_preds)
+        fake_labels = torch.zeros_like(fake_preds)
+        d_loss = self.criterion.discriminator_loss(real_preds, fake_preds, real_labels, fake_labels)
 
         # Backpropagate and optimize
         d_loss.backward()
@@ -179,7 +181,8 @@ class GANTrainer(ABC):
         fake_preds = self.model.discriminator(fake_imgs)
 
         # Calculate generator loss
-        g_loss = self.criterion.generator_loss(fake_preds)
+        fake_labels = torch.ones_like(fake_preds)
+        g_loss = self.criterion.generator_loss(fake_preds, fake_labels)
 
         # Backpropagate and optimize
         g_loss.backward()

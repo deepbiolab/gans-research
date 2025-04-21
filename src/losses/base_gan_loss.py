@@ -19,7 +19,7 @@ class BaseGANLoss(ABC):
     """
 
     @abstractmethod
-    def generator_loss(self, fake_pred: torch.Tensor) -> torch.Tensor:
+    def generator_loss(self, fake_pred: torch.Tensor, fake_label: torch.Tensor) -> torch.Tensor:
         """
         Calculate the loss for the generator.
         
@@ -32,7 +32,8 @@ class BaseGANLoss(ABC):
 
     @abstractmethod
     def discriminator_loss(
-        self, real_pred: torch.Tensor, fake_pred: torch.Tensor
+        self, real_pred: torch.Tensor, fake_pred: torch.Tensor,
+        real_label: torch.Tensor, fake_label: torch.Tensor
     ) -> torch.Tensor:
         """
         Calculate the loss for the discriminator.

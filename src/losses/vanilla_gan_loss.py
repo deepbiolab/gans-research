@@ -18,7 +18,7 @@ class VanillaGANLoss(BaseGANLoss):
     instead of minimizing log(1 - D(G(z))).
     """
 
-    def generator_loss(self, fake_pred: torch.Tensor) -> torch.Tensor:
+    def generator_loss(self, fake_pred: torch.Tensor, fake_label: torch.Tensor) -> torch.Tensor:
         """
         Calculate the non-saturating loss for the generator.
         
@@ -32,10 +32,11 @@ class VanillaGANLoss(BaseGANLoss):
             torch.Tensor: Computed binary cross-entropy loss for the generator
         """
         # Generator wants discriminator to output 1
-        return F.binary_cross_entropy_with_logits(fake_pred, torch.ones_like(fake_pred))
+        return F.binary_cross_entropy_with_logits(fake_pred, fake_label)
 
     def discriminator_loss(
-        self, real_pred: torch.Tensor, fake_pred: torch.Tensor
+        self, real_pred: torch.Tensor, fake_pred: torch.Tensor,
+        real_label: torch.Tensor, fake_label: torch.Tensor
     ) -> torch.Tensor:
         """
         Calculate the loss for the discriminator.
@@ -52,6 +53,6 @@ class VanillaGANLoss(BaseGANLoss):
                          (average of real and fake sample losses)
         """
         # Discriminator wants real samples to be 1 and fake samples to be 0
-        loss_real = F.binary_cross_entropy_with_logits(real_pred, torch.ones_like(real_pred))
-        loss_fake = F.binary_cross_entropy_with_logits(fake_pred, torch.zeros_like(fake_pred))
+        loss_real = F.binary_cross_entropy_with_logits(real_pred, real_label)
+        loss_fake = F.binary_cross_entropy_with_logits(fake_pred, fake_label)
         return (loss_real + loss_fake) / 2

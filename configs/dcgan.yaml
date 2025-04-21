@@ -46,3 +46,22 @@ logging:
   use_tensorboard: false
   use_wandb: true
   wandb_project: gans-research
+
+# Tricks for stable training
+ema:
+  enable: true
+  beta: 0.995
+  update_after_step: 100
+  update_every: 1
+
+label_smoothing:
+  enable: true
+  smoothing_range: [0.8, 1.2]
+
+random_label_flip:
+  enable: true
+  prob: 0.2
+
+augment:
+  enable: true
+  policy: "color,translation"
