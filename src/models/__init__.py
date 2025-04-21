@@ -3,9 +3,11 @@ This module contains the registry of all the models.
 """
 
 from .vanilla_gan import VanillaGAN
+from .dcgan import DCGAN
 
 MODEL_REGISTRY = {
     "vanilla_gan": VanillaGAN,
+    "dcgan": DCGAN,
 }
 
 
@@ -43,4 +45,6 @@ class AutoModel:
         return model_class.from_pretrained(path, map_location=map_location, **kwargs)
 
 
-__all__ = ["VanillaGAN", "MODEL_REGISTRY", "AutoModel"]
+__all__ = ["VanillaGAN",
+           "DCGAN",
+           "MODEL_REGISTRY", "AutoModel"]

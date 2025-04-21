@@ -250,13 +250,16 @@ class GANTrainer(ABC):
         self.logger.info("Created samples animation: %s", gif_path)
 
         if self.writer is not None:
-            self.writer.add_artifact(
-                artifact_name="training_animation",
-                artifact_type="animation",
-                file_path=gif_path,
-                aliases=["final"],
-            )
-            self.writer.close()
+            try:
+                self.writer.add_artifact(
+                    artifact_name="training_animation",
+                    artifact_type="animation",
+                    file_path=gif_path,
+                    aliases=["final"],
+                )
+                self.writer.close()
+            except AttributeError:
+                self.logger.warning("Could not log artifact to tensorboard")
 
     def evaluate_fid(self, iteration: int):
         """Evaluate FID score on the validation dataset."""

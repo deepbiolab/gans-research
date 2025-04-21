@@ -3,9 +3,10 @@ experiment:
   name: dcgan_celeba
   seed: 42
   output_dir: ./outputs/dcgan
-  log_interval: 100
+  log_interval: 500
+  sampling_num: 16
   save_interval: 1000
-  num_epochs: 100
+  num_epochs: 3
   num_workers: 4
   device: cuda
 
@@ -32,12 +33,12 @@ training:
   use_scheduler: false
 
 evaluation:
-  use_fid: true
+  use_fid: false
   batch_size: 64
   num_samples: 100
   eval_epoch_interval: 1
 
 logging:
-  use_tensorboard: true
-  use_wandb: false
+  use_tensorboard: false
+  use_wandb: true
   wandb_project: gans-research

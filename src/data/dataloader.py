@@ -75,10 +75,10 @@ def get_dataset(config):
             ]
         )
         train_dataset = datasets.CelebA(
-            root="./data/downloaded", split="train", download=True, transform=transform
+            root="./datasets", split="train", download=False, transform=transform
         )
         test_dataset = datasets.CelebA(
-            root="./data/downloaded", split="test", download=True, transform=transform
+            root="./datasets", split="test", download=False, transform=transform
         )
         
     elif dataset_name in ["celeba_hq", "ffhq"]:
@@ -87,7 +87,7 @@ def get_dataset(config):
         # This is just a placeholder - you'll need to implement custom dataset classes
         raise NotImplementedError(
             f"Dataset {dataset_name} requires custom implementation and preprocessing. "
-            f"Please add your implementation in data/datasets/{dataset_name}.py"
+            f"Please add your implementation in src/data/{dataset_name}.py"
         )
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
