@@ -265,46 +265,59 @@ def visualize_feature_space(
 
 def visualize_metrics(metrics, eval_dir, writer=None):
     """
-    Visualize evaluation metrics in a bar chart.
+    Visualize GAN evaluation metrics in grouped bar charts.
 
-    Args:
-        metrics: Dictionary containing metrics to visualize
-        logger: Logger instance
-        writer: Summary writer for logging visualizations
-
-    Returns:
-        fig: Figure object with the visualization
+    Groups:
+        - Quality: [FID]
+        - Coverage: [Precision, Recall, F1_Score]
+        - Speed: [Generation_Speed_ms]
     """
-    # Create figure
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # Define metric groups
+    quality_metrics = ["FID"]
+    coverage_metrics = ["Precision", "Recall", "F1_Score"]
+    speed_metrics = ["Generation_Speed_ms"]
 
-    # Extract values
-    metric_names = list(metrics.keys())
-    values = list(metrics.values())
+    # Prepare grouped data
+    groups = [
+        ("Quality", quality_metrics),
+        ("Coverage", coverage_metrics),
+        ("Speed", speed_metrics),
+    ]
 
-    # Create bar chart
-    bars = ax.bar(metric_names, values, color="skyblue")
+    # Set up subplots: one for each group
+    fig, axes = plt.subplots(1, len(groups), figsize=(5 * len(groups), 6))
 
-    # Add values on top of bars
-    for bar in bars:
-        height = bar.get_height()
-        ax.text(
-            bar.get_x() + bar.get_width() / 2.0,
-            height + 0.01,
-            f"{height:.4f}",
-            ha="center",
-            va="bottom",
-            fontsize=10,
-        )
+    if len(groups) == 1:
+        axes = [axes]  # Ensure axes is always iterable
 
-    # Add labels and title
-    ax.set_ylabel("Score")
-    ax.set_title("GAN Evaluation Metrics")
-    ax.set_ylim(0, max(values) * 1.2)  # Add some space above bars
+    for ax, (group_name, group_keys) in zip(axes, groups):
+        # Extract values for this group; handle missing keys gracefully
+        values = [metrics.get(k, 0.0) for k in group_keys]
+        bars = ax.bar(group_keys, values, color="skyblue")
+
+        # Annotate bars
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 0.01 * (max(values) if max(values) > 0 else 1),
+                f"{height:.4f}",
+                ha="center",
+                va="bottom",
+                fontsize=10,
+            )
+
+        # Set labels and title for each subplot
+        ax.set_ylabel("Score")
+        ax.set_title(f"{group_name} Metrics")
+        ax.set_ylim(0, max(values) * 1.2 if max(values) > 0 else 1)
+
+    fig.suptitle("GAN Evaluation Metrics (Grouped)", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
 
     # Log to writer if available
     if writer is not None:
-        writer.add_image("summary_chart", fig, 0)
+        writer.add_image("summary_chart_grouped", fig, 0)
 
     # Save figure
     fig.savefig(os.path.join(eval_dir, "metrics_summary.png"))

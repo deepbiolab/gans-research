@@ -56,7 +56,7 @@ This repository contains implementations of key Generative Adversarial Network (
 
 1. **Basic GANs**
    - [x] **Vanilla GAN**: Original formulation with fully connected layers for both generator and discriminator networks.
-   - [ ] **DCGAN**: Introduced convolutional architectures and established key architectural guidelines for stable GAN training.
+   - [x] **DCGAN**: Introduced convolutional architectures and established key architectural guidelines for stable GAN training.
    
 2. **Training Stability Improvements**
    - [ ] **WGAN**: Improved training stability using Wasserstein distance.
