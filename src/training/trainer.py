@@ -4,12 +4,13 @@ Base trainer for GAN models.
 
 import os
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader
 from src.models.base.base_gan import BaseGAN
+from src.losses.base_gan_loss import BaseGANLoss
 from src.metrics.quality import FIDCalculator
 from src.utils.set_experiment import setup_logger, setup_summary
 from src.utils.visualization import make_grid, save_grid, create_animation
@@ -27,6 +28,7 @@ class GANTrainer(ABC):
         config: dict,
         train_dataloader: DataLoader,
         valid_dataloader: DataLoader,
+        loss_fn: BaseGANLoss,
     ) -> None:
         self.config = config
         self.device = torch.device(config["experiment"]["device"])
@@ -35,6 +37,7 @@ class GANTrainer(ABC):
         self.model = model
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
+        self.criterion = loss_fn
 
         # Setup evaluation parameters, fid
         self.setup_evaluation()
@@ -123,7 +126,6 @@ class GANTrainer(ABC):
             self.g_scheduler = None
             self.d_scheduler = None
 
-    @abstractmethod
     def train_step(self, real_batch, iteration):
         """
         Single training step.
@@ -136,6 +138,56 @@ class GANTrainer(ABC):
         Returns:
             dict: Dictionary of losses
         """
+        # Move data to device
+        if isinstance(real_batch, (list, tuple)):
+            real_imgs = real_batch[0].to(self.device)
+        else:
+            real_imgs = real_batch.to(self.device)
+
+        batch_size = real_imgs.size(0)
+
+        # -----------------
+        #  Train Discriminator
+        # -----------------
+        self.d_optimizer.zero_grad()
+
+        # Generate fake images
+        z = torch.randn(batch_size, self.model.latent_dim).to(self.device)
+        fake_imgs = self.model.generator(z)
+
+        # Get discriminator outputs
+        real_preds = self.model.discriminator(real_imgs)
+        fake_preds = self.model.discriminator(fake_imgs.detach())
+
+        # Calculate discriminator loss
+        d_loss = self.criterion.discriminator_loss(real_preds, fake_preds)
+
+        # Backpropagate and optimize
+        d_loss.backward()
+        self.d_optimizer.step()
+
+        # -----------------
+        #  Train Generator
+        # -----------------
+        self.g_optimizer.zero_grad()
+
+        # Generate new fake images (we do this again to get a fresh computation graph)
+        z = torch.randn(batch_size, self.model.latent_dim).to(self.device)
+        fake_imgs = self.model.generator(z)
+
+        # Get discriminator predictions on generated images
+        fake_preds = self.model.discriminator(fake_imgs)
+
+        # Calculate generator loss
+        g_loss = self.criterion.generator_loss(fake_preds)
+
+        # Backpropagate and optimize
+        g_loss.backward()
+        self.g_optimizer.step()
+
+        # Create dictionary of losses for logging
+        losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}
+        return losses
 
     def evaluate_fid(self, iteration: int):
         """Evaluate FID score on the validation dataset."""

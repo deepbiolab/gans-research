@@ -101,78 +101,89 @@ Each GAN implementation has its own training script in the `experiments` directo
 python experiments/stage1_basic/train_vanilla_gan.py
 ```
 
+### Evaluation
+Evaluation scripts are located in the `experiments` directory:
+
+```bash
+# Evaluate a trained model
+python experiments/evaluate.py --config configs/vanilla_gan.yaml
+
+# Evaluate specific metrics
+python experiments/evaluate.py --config configs/vanilla_gan.yaml --metrics quality
+python experiments/evaluate.py --config configs/vanilla_gan.yaml --metrics coverage
+python experiments/evaluate.py --config configs/vanilla_gan.yaml --metrics speed
+
+# Customize evaluation parameters
+python experiments/evaluate.py --config configs/vanilla_gan.yaml --num_samples 5000 --batch_size 32
+```
+
+**Configuration Example**
+
+Evaluation configuration is part of the model's config YAML file:
+
+```yaml
+evaluation:
+  batch_size: 64
+  num_samples: 10000
+```
+
 ### Inference
 
-This project supports flexible GAN inference with dynamic architecture selection and robust logging.  
-You can easily generate sample images from any registered GAN model using a unified interface.
-
-**Command-Line Inference**
+**Command-Line Inference**: example for `vanilla-gan`
 
 To generate images using a trained GAN model:
 
 ```
-python experiments/inference.py \
-  --config path/to/your_config.yaml \
-  --model_name dcgan \
-  --checkpoint outputs/dcgan/checkpoints/final_model.pth \
-  --num_samples 32 \
-  --out outputs/dcgan/results/sample_grid.png
+python experiments/inference.py --config configs/vanilla_gan.yaml
 ```
-
-**Arguments:**
-
-- `--config`: Path to your YAML configuration file. (**required**)
-- `--model_name`: Name of the GAN model to use (e.g., `vanilla_gan`, `dcgan`, `wgan`). Overrides the config if specified.
-- `--checkpoint`: Path to the trained model checkpoint. Overrides the config if specified.
-- `--num_samples`: Number of images to generate. Overrides the config if specified.
-- `--out`: Output path for the generated image grid. If not set, a default path will be used.
-- `--gpu`: GPU ID to use (`-1` for CPU).
 
 **Configuration Example**
 
-Your YAML config should include the following fields:
+YAML config should include the following fields:
 
 ```yaml
-inference:
-  model_name: vanilla_gan      # or dcgan, wgan, etc.
+inference:  # or dcgan, wgan, etc.
   checkpoint_path: outputs/vanilla_gan/checkpoints/final_model.pth
   num_samples: 16
+model:
+  name: vanilla_gan
 experiment:
   output_dir: outputs/vanilla_gan
 ```
 
 
-**Adding New Models**
-
-To register a new GAN model, add it to `MODEL_REGISTRY` in `src/models/__init__.py`:
-
-```python
-from .my_custom_gan import MyCustomGAN
-
-MODEL_REGISTRY = {
-    "vanilla_gan": VanillaGAN,
-    "dcgan": DCGAN,
-    "wgan": WGAN,
-    "my_custom_gan": MyCustomGAN,
-}
-```
-
-
-**Note:**  
-Generated images will be saved as a grid (default: `inference_result.png`), with grayscale images automatically converted to RGB for visualization.
-
-
-
 ## Project Structure
 
-- `models/`: GAN implementations
-- `data/`: Dataset loading and processing
-- `training/`: Training utilities and loss functions
-- `evaluation/`: Evaluation metrics and visualization tools
-- `utils/`: Helper utilities
-- `experiments/`: Training scripts for each GAN variant
-- `configs/`: Configuration files
+The project is organized as follows:
 
+```
+gans-research/
+├── configs/                 # Configuration files for each GAN variant
+├── data/                    # Dataset loading and processing utilities
+├── evaluation/              # Evaluation metrics and visualization tools
+│   ├── metrics/             # Implementation of evaluation metrics (FID, etc.)
+│   └── visualization/       # Visualization utilities for generated images
+├── experiments/             # Training and evaluation scripts
+│   └── stage1_basic/        # Training scripts for basic GAN models
+├── src/                     # Core source code
+│   ├── data/                # Dataset handling
+│   ├── losses/              # Loss functions for different GAN variants
+│   ├── metrics/             # Evaluation metrics (FID, precision-recall)
+│   ├── models/              # Model implementations
+│   │   ├── base/                # Base classes for generators and discriminators
+│   │   ├── vanilla_gan/         # Vanilla GAN implementation
+│   │   ├── dcgan/               # Deep Convolutional GAN implementation
+│   │   ├── cgan/                # Conditional GAN implementation
+│   │   ├── wgan/                # Wasserstein GAN implementation
+│   │   ├── wgan_gp/             # Wasserstein GAN with Gradient Penalty implementation
+│   │   ├── prog_gan/            # Progressive GAN implementation
+│   │   ├── stylegan1/           # StyleGAN v1 implementation
+│   │   ├── stylegan2/           # StyleGAN v2 implementation
+│   │   └── stylegan3/           # StyleGAN v3 implementation
+│   ├── training/            # Training utilities
+│   └── utils/               # Helper utilities
+└── pyproject.toml           # Package configuration
+```
 
 
 ## References

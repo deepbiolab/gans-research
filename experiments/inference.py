@@ -17,7 +17,6 @@ def load_model(config, logger):
     model_name = config["model"].get("name", "vanilla_gan")
     checkpoint_path = config["inference"]["checkpoint_path"]
 
-    logger.info(f"Using model: {model_name}")
     device = config["experiment"]["device"]
 
     try:
@@ -27,7 +26,7 @@ def load_model(config, logger):
             map_location=device,
             config=config,
         )
-        logger.info(f"Successfully loaded model from {checkpoint_path}")
+        logger.info(f"Successfully loaded {model.__class__.__name__} from {checkpoint_path}")
     except ValueError as e:
         logger.error(str(e))
         raise

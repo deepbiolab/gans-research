@@ -3,96 +3,13 @@ Training script for Vanilla GAN on MNIST dataset.
 """
 
 import argparse
-
 import yaml
-import torch
-from torch.utils.data import DataLoader
 
 from src.models import VanillaGAN
 from src.losses import VanillaGANLoss
 from src.training import GANTrainer
 from src.data.dataloader import create_dataloader
 from src.utils.set_experiment import configure_experiment
-
-
-class VanillaGANTrainer(GANTrainer):
-    """
-    Trainer specific to Vanilla GAN.
-    Inherits from the base trainer and implements the train_step method.
-    """
-
-    def __init__(
-        self,
-        model: VanillaGAN,
-        config: dict,
-        train_dataloader: DataLoader,
-        valid_dataloader: DataLoader,
-    ):
-        super().__init__(model, config, train_dataloader, valid_dataloader)
-        self.criterion = VanillaGANLoss()
-
-    def train_step(self, real_batch, iteration):
-        """
-        Single training step for Vanilla GAN.
-        Trains the discriminator and generator.
-
-        Args:
-            real_batch: Batch of real images
-            iteration: Current iteration number
-
-        Returns:
-            losses: Dictionary of losses
-        """
-        # Move data to device
-        if isinstance(real_batch, (list, tuple)):
-            real_imgs = real_batch[0].to(self.device)
-        else:
-            real_imgs = real_batch.to(self.device)
-
-        batch_size = real_imgs.size(0)
-
-        # -----------------
-        #  Train Discriminator
-        # -----------------
-        self.d_optimizer.zero_grad()
-
-        # Generate fake images
-        z = torch.randn(batch_size, self.model.latent_dim).to(self.device)
-        fake_imgs = self.model.generator(z)
-
-        # Get discriminator outputs
-        real_preds = self.model.discriminator(real_imgs)
-        fake_preds = self.model.discriminator(fake_imgs.detach())
-
-        # Calculate discriminator loss
-        d_loss = self.criterion.discriminator_loss(real_preds, fake_preds)
-
-        # Backpropagate and optimize
-        d_loss.backward()
-        self.d_optimizer.step()
-
-        # -----------------
-        #  Train Generator
-        # -----------------
-        self.g_optimizer.zero_grad()
-
-        # Generate new fake images (we do this again to get a fresh computation graph)
-        z = torch.randn(batch_size, self.model.latent_dim).to(self.device)
-        fake_imgs = self.model.generator(z)
-
-        # Get discriminator predictions on generated images
-        fake_preds = self.model.discriminator(fake_imgs)
-
-        # Calculate generator loss
-        g_loss = self.criterion.generator_loss(fake_preds)
-
-        # Backpropagate and optimize
-        g_loss.backward()
-        self.g_optimizer.step()
-
-        # Create dictionary of losses for logging
-        losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}
-        return losses
 
 
 def main():
@@ -124,8 +41,13 @@ def main():
     # Create model
     model = VanillaGAN(config)
 
+    # Create loss function
+    loss_fn = VanillaGANLoss()
+
     # Create trainer and train
-    trainer = VanillaGANTrainer(model, config, train_dataloader, valid_dataloader)
+    trainer = GANTrainer(
+        model, config, train_dataloader, valid_dataloader, loss_fn=loss_fn
+    )
     trainer.train()
 
 

@@ -4,7 +4,6 @@ experiment:
   seed: 42
   output_dir: ./outputs/stylegan1
   log_interval: 100
-  sample_interval: 500
   save_interval: 1000
   device: cuda
 
