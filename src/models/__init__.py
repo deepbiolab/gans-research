@@ -4,10 +4,12 @@ This module contains the registry of all the models.
 
 from .vanilla_gan import VanillaGAN
 from .dcgan import DCGAN
+from .wgan import WGAN
 
 MODEL_REGISTRY = {
     "vanilla_gan": VanillaGAN,
     "dcgan": DCGAN,
+    "wgan": WGAN,
 }
 
 
@@ -47,4 +49,5 @@ class AutoModel:
 
 __all__ = ["VanillaGAN",
            "DCGAN",
+           "WGAN",
            "MODEL_REGISTRY", "AutoModel"]
