@@ -79,7 +79,6 @@ class DCGANDiscriminator(BaseDiscriminator):
             Block(ndf * 2, ndf * 4, 4, 2, 1, use_batch_norm),     # (ndf*4) x 8 x 8
             Block(ndf * 4, ndf * 8, 4, 2, 1, use_batch_norm),     # (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),           # 1 x 1 x 1
-            nn.Sigmoid(),
         )
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:

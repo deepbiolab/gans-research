@@ -14,67 +14,50 @@ from src.utils.feature_extraction import (
 )
 
 
-def compute_manifold_overlap(features_a, features_b, radii_b):
-    """
-    Compute manifold overlap for precision/recall calculation.
-
-    Args:
-        features_a: First set of features
-        features_b: Second set of features
-        radii_b: Radii for the second set of features
-
-    Returns:
-        overlap: Fraction of points in manifold overlap
-    """
-    # Find nearest neighbors
-    nearest = NearestNeighbors(n_neighbors=1, algorithm="auto", n_jobs=-1).fit(
-        features_b
-    )
-    distances, _ = nearest.kneighbors(features_a)
-    distances = distances.flatten()
-
-    # Count points with distance less than corresponding radius
-    count = 0
-    for i, dist in enumerate(distances):
-        if dist <= radii_b[i]:
-            count += 1
-
-    return count / len(features_a)
-
-
 def compute_precision_recall(real_features, fake_features, nearest_k=5):
     """
-    Compute precision and recall metrics.
+    Compute GAN precision and recall metrics between real and fake features.
 
     Args:
-        real_features: Features from real images
-        fake_features: Features from generated images
+        real_features: numpy array of shape [N_real, D]
+        fake_features: numpy array of shape [N_fake, D]
+        nearest_k: int, k for k-nearest neighbors (typically 5)
 
     Returns:
-        precision: Precision metric
-        recall: Recall metric
+        precision: float, fraction of fake samples in real manifold
+        recall: float, fraction of real samples in fake manifold
     """
-    # Compute manifold radii
-    real_nearest = NearestNeighbors(
-        n_neighbors=nearest_k, algorithm="auto", n_jobs=-1
-    ).fit(real_features)
-    fake_nearest = NearestNeighbors(
-        n_neighbors=nearest_k, algorithm="auto", n_jobs=-1
-    ).fit(fake_features)
 
-    # For each real sample, find its nearest neighbors in the fake data
-    real_to_fake_distances, _ = real_nearest.kneighbors(fake_features)
-    fake_to_real_distances, _ = fake_nearest.kneighbors(real_features)
+    # 1. Calculate the k-nearest neighbor radius for both real and fake features
+    real_nn = NearestNeighbors(n_neighbors=nearest_k).fit(real_features)
+    real_distances, _ = real_nn.kneighbors(real_features)
+    real_radii = real_distances[:, -1]  # Manifold radius for each real point
 
-    # Use the k-th nearest neighbor to determine radius
-    real_radii = np.max(real_to_fake_distances, axis=1)
-    fake_radii = np.max(fake_to_real_distances, axis=1)
+    fake_nn = NearestNeighbors(n_neighbors=nearest_k).fit(fake_features)
+    fake_distances, _ = fake_nn.kneighbors(fake_features)
+    fake_radii = fake_distances[:, -1]  # Manifold radius for each fake point
 
-    # Compute precision and recall
-    precision = compute_manifold_overlap(fake_features, real_features, real_radii)
-    recall = compute_manifold_overlap(real_features, fake_features, fake_radii)
+    # 2. Calculate precision: fake points to real manifold
+    # For each fake point, find the nearest real point and check 
+    # if the distance is within the radius of that real point
+    real_nn_1 = NearestNeighbors(n_neighbors=1).fit(real_features)
+    fake_to_real_dist, fake_to_real_idx = real_nn_1.kneighbors(fake_features)
+    fake_to_real_dist = fake_to_real_dist.flatten()
+    fake_to_real_idx = fake_to_real_idx.flatten()
+    # Check if the point falls within the real manifold
+    precision_mask = fake_to_real_dist <= real_radii[fake_to_real_idx]
+    precision = np.mean(precision_mask)
 
-    return precision, recall
+    # 3. Calculate recall: real points to fake manifold
+    fake_nn_1 = NearestNeighbors(n_neighbors=1).fit(fake_features)
+    real_to_fake_dist, real_to_fake_idx = fake_nn_1.kneighbors(real_features)
+    real_to_fake_dist = real_to_fake_dist.flatten()
+    real_to_fake_idx = real_to_fake_idx.flatten()
+    # Check if the point falls within the fake manifold
+    recall_mask = real_to_fake_dist <= fake_radii[real_to_fake_idx]
+    recall = np.mean(recall_mask)
+
+    return float(precision), float(recall)
 
 
 class PrecisionRecallCalculator:
@@ -142,6 +125,8 @@ class PrecisionRecallCalculator:
         )
 
         # Compute precision and recall
-        precision, recall = compute_precision_recall(real_features, fake_features, nearest_k=self.nearest_k)
+        precision, recall = compute_precision_recall(
+            real_features, fake_features, nearest_k=self.nearest_k
+        )
 
         return precision, recall, real_features, fake_features

@@ -34,9 +34,13 @@ training:
 
 evaluation:
   use_fid: false
-  batch_size: 64
-  num_samples: 100
+  batch_size: 128
+  num_samples: 10000
   eval_epoch_interval: 1
+
+inference:
+  checkpoint_path: ./outputs/dcgan/checkpoints/final_model.pth
+  num_samples: 16
 
 logging:
   use_tensorboard: false

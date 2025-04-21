@@ -65,7 +65,7 @@ def get_dataset(config):
         )
     elif dataset_name == "celeba":
         # For CelebA, we need center crop before resize
-        crop_size = config["data"].get("crop_size", 178)  # Default CelebA crop
+        crop_size = config["data"].get("crop_size")
         transform = transforms.Compose(
             [
                 transforms.CenterCrop(crop_size),
@@ -80,7 +80,6 @@ def get_dataset(config):
         test_dataset = datasets.CelebA(
             root="./datasets", split="test", download=False, transform=transform
         )
-        
     elif dataset_name in ["celeba_hq", "ffhq"]:
         # For high-res datasets like CelebA-HQ and FFHQ
         # Note: These datasets require external download and preprocessing

@@ -3,16 +3,16 @@ experiment:
   name: vanilla_gan_mnist
   seed: 42
   output_dir: ./outputs/vanilla_gan
-  log_interval: 100
+  log_interval: 200
   sampling_num: 16
   save_interval: 1000
-  num_epochs: 5
-  num_workers: 4
+  num_epochs: 50
+  num_workers: 8
   device: cuda
 
 data:
   name: mnist
-  batch_size: 64
+  batch_size: 128
   image_size: 28
   channels: 1
 
@@ -33,8 +33,8 @@ training:
   n_critic: 1  # Standard GAN updates G and D equally
 
 evaluation:
-  use_fid: true
-  batch_size: 64
+  use_fid: false
+  batch_size: 128
   num_samples: 10000
   eval_epoch_interval: 1
 

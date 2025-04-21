@@ -1,4 +1,4 @@
-# GANs Research Reproduction
+# GANs Research Reproduction from Scratch
 
 ```mermaid
 graph LR
