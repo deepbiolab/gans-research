@@ -8,7 +8,7 @@ from torch import nn
 from src.models.base.base_generator import BaseGenerator
 
 
-class Block(nn.Module):
+class DeconvBlock(nn.Module):
     """
     Basic block for the DCGAN generator.
     """
@@ -75,11 +75,11 @@ class DCGANGenerator(BaseGenerator):
 
         self.net = nn.Sequential(
             # Input: latent_dim x 1 x 1
-            Block(latent_dim, ngf * 8, 4, 1, 0, use_batch_norm),  # (ngf*8) x 4 x 4
-            Block(ngf * 8, ngf * 4, 4, 2, 1, use_batch_norm),     # (ngf*4) x 8 x 8
-            Block(ngf * 4, ngf * 2, 4, 2, 1, use_batch_norm),     # (ngf*2) x 16 x 16
-            Block(ngf * 2, ngf, 4, 2, 1, use_batch_norm),         # (ngf) x 32 x 32
-            nn.ConvTranspose2d(ngf, nc, 4, 2, 1, bias=False),     # (nc) x 64 x 64
+            DeconvBlock(latent_dim, ngf * 8, 4, 1, 0, use_batch_norm),  # (ngf*8) x 4 x 4
+            DeconvBlock(ngf * 8, ngf * 4, 4, 2, 1, use_batch_norm),     # (ngf*4) x 8 x 8
+            DeconvBlock(ngf * 4, ngf * 2, 4, 2, 1, use_batch_norm),     # (ngf*2) x 16 x 16
+            DeconvBlock(ngf * 2, ngf, 4, 2, 1, use_batch_norm),         # (ngf) x 32 x 32
+            nn.ConvTranspose2d(ngf, nc, 4, 2, 1, bias=False),           # (nc) x 64 x 64
             nn.Tanh(),
         )
 

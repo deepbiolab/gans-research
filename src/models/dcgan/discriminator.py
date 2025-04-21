@@ -8,7 +8,7 @@ from torch import nn
 from src.models.base.base_discriminator import BaseDiscriminator
 
 
-class Block(nn.Module):
+class ConvBlock(nn.Module):
     """
     Basic block for the DCGAN discriminator.
     """
@@ -23,15 +23,13 @@ class Block(nn.Module):
         use_bn: bool,
     ) -> None:
         super().__init__()
-        layers = [
+        self.block = nn.Sequential(
             nn.Conv2d(
                 in_channels, out_channels, kernel_size, stride, padding, bias=False
-            )
-        ]
-        if use_bn:
-            layers.append(nn.BatchNorm2d(out_channels))
-        layers.append(nn.LeakyReLU(0.2, inplace=True))
-        self.block = nn.Sequential(*layers)
+            ),
+            nn.BatchNorm2d(out_channels) if use_bn else nn.Identity(),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -74,11 +72,11 @@ class DCGANDiscriminator(BaseDiscriminator):
 
         self.net = nn.Sequential(
             # Input: (nc) x 64 x 64
-            Block(nc, ndf, 4, 2, 1, False),                      # (ndf) x 32 x 32
-            Block(ndf, ndf * 2, 4, 2, 1, use_batch_norm),         # (ndf*2) x 16 x 16
-            Block(ndf * 2, ndf * 4, 4, 2, 1, use_batch_norm),     # (ndf*4) x 8 x 8
-            Block(ndf * 4, ndf * 8, 4, 2, 1, use_batch_norm),     # (ndf*8) x 4 x 4
-            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),           # 1 x 1 x 1
+            ConvBlock(nc, ndf, 4, 2, 1, False),                         # (ndf) x 32 x 32
+            ConvBlock(ndf, ndf * 2, 4, 2, 1, use_batch_norm),           # (ndf*2) x 16 x 16
+            ConvBlock(ndf * 2, ndf * 4, 4, 2, 1, use_batch_norm),       # (ndf*4) x 8 x 8
+            ConvBlock(ndf * 4, ndf * 8, 4, 2, 1, use_batch_norm),       # (ndf*8) x 4 x 4
+            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),                 # 1 x 1 x 1
         )
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:
