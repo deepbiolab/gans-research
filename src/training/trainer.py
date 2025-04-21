@@ -189,20 +189,6 @@ class GANTrainer(ABC):
         losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}
         return losses
 
-    def evaluate_fid(self, iteration: int):
-        """Evaluate FID score on the validation dataset."""
-        fid_score = self.fid_calculator.calculate_fid(
-            real_dataloader=self.valid_dataloader,
-            generator=self.model.generator,
-            num_samples=self.num_samples,
-            batch_size=self.batch_size,
-            latent_dim=self.model.latent_dim,
-        )
-        self.logger.info("[FID] Iteration %d: FID=%.4f", iteration, fid_score)
-        if self.writer is not None:
-            self.writer.add_scalar("eval/fid", fid_score, iteration)
-        return fid_score
-
     def train(self):
         """
         Main training loop.
@@ -271,6 +257,20 @@ class GANTrainer(ABC):
                 aliases=["final"],
             )
             self.writer.close()
+
+    def evaluate_fid(self, iteration: int):
+        """Evaluate FID score on the validation dataset."""
+        fid_score = self.fid_calculator.calculate_fid(
+            real_dataloader=self.valid_dataloader,
+            generator=self.model.generator,
+            num_samples=self.num_samples,
+            batch_size=self.batch_size,
+            latent_dim=self.model.latent_dim,
+        )
+        self.logger.info("[FID] Iteration %d: FID=%.4f", iteration, fid_score)
+        if self.writer is not None:
+            self.writer.add_scalar("eval/fid", fid_score, iteration)
+        return fid_score
 
     def generate_samples(self, sampling_num: int = 16) -> torch.Tensor:
         """
