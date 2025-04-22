@@ -59,7 +59,7 @@ def generate(model, config, logger, num_samples=None, labels=None):
         labels = torch.tensor(labels, device=config["experiment"]["device"])
         if labels.ndim == 0:
             labels = labels.unsqueeze(0)
-        nlabels = labels.shape[0]
+
         samples_per_label = num_samples or 1
         logger.info(f"Generating {samples_per_label} samples for each label in {labels.tolist()}...")
         all_images = []
