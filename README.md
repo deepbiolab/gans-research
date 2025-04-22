@@ -63,7 +63,7 @@ This repository contains implementations of key Generative Adversarial Network (
    - [x] **WGAN-GP**: Enhanced WGAN with gradient penalty.
    
 3. **Conditional Control**
-   - [ ] **Conditional GAN**: Added ability to control generation with explicit labels.
+   - [x] **Conditional GAN**: Added ability to control generation with explicit labels.
    
 4. **High-Quality Generation**
    - [ ] **Progressive GAN**: Introduced progressive growing methodology for generating high-resolution images.
