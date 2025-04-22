@@ -60,7 +60,7 @@ This repository contains implementations of key Generative Adversarial Network (
    
 2. **Training Stability Improvements**
    - [x] **WGAN**: Improved training stability using Wasserstein distance.
-   - [ ] **WGAN-GP**: Enhanced WGAN with gradient penalty.
+   - [x] **WGAN-GP**: Enhanced WGAN with gradient penalty.
    
 3. **Conditional Control**
    - [ ] **Conditional GAN**: Added ability to control generation with explicit labels.
