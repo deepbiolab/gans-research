@@ -40,6 +40,10 @@ evaluation:
   num_samples: 1000
   eval_epoch_interval: 1
 
+inference:
+  checkpoint_path: ./outputs/cgan/checkpoints/final_model.pth
+  num_samples: 16
+
 logging:
   use_tensorboard: false
   use_wandb: true
