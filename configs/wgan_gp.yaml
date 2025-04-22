@@ -3,26 +3,26 @@ experiment:
   name: wgan_gp_celeba
   seed: 42
   output_dir: ./outputs/wgan_gp
-  log_interval: 100
+  log_interval: 200
+  sampling_num: 16
   save_interval: 1000
-  num_epochs: 100
-  num_workers: 4
+  num_epochs: 1
+  num_workers: 8
   device: cuda
 
 data:
   name: celeba
   batch_size: 64
-  image_size: 128
+  image_size: 64
   channels: 3
   crop_size: 108
 
 model:
   name: wgan_gp
-  latent_dim: 128
+  latent_dim: 100
   ngf: 64
   ndf: 64
-  use_batch_norm: false  # WGAN-GP typically uses layer normalization
-  use_layer_norm: true
+  use_batch_norm: true
 
 training:
   optimizer: adam  # WGAN-GP can use Adam with gradient penalty
@@ -36,10 +36,25 @@ training:
 evaluation:
   use_fid: true
   batch_size: 64
-  num_samples: 100
+  num_samples: 2000
   eval_epoch_interval: 1
 
+inference:
+  checkpoint_path: ./outputs/wgan_gp/checkpoints/final_model.pth
+  num_samples: 16
+
 logging:
-  use_tensorboard: true
-  use_wandb: false
+  use_tensorboard: false
+  use_wandb: true
   wandb_project: gans-research
+
+# Tricks for stable training
+ema:
+  enable: false
+  beta: 0.995
+  update_after_step: 100
+  update_every: 1
+
+augment:
+  enable: false
+  policy: "color,translation"
