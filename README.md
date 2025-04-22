@@ -1,6 +1,8 @@
 # GANs Research Reproduction from Scratch
 
-![](./assets/cgan_training_animation.gif)
+<div align="center">
+  <img src="./assets/cgan_training_animation.gif" alt="CGAN Training Animation">
+</div>
 
 ```mermaid
 graph LR
