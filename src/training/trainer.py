@@ -62,6 +62,9 @@ class GANTrainer(ABC):
         # Setup logging
         self.logger = setup_logger(self.output_dir)
 
+        # number of rows in the grid for visualization
+        self.nrow = 8
+
     def setup_evaluation(self):
         """
         Setup evaluation parameters, fid
@@ -309,7 +312,7 @@ class GANTrainer(ABC):
 
         # Generate samples
         samples = self.generate_samples(self.sampling_num)
-        grid = make_grid(samples, nrow=nrow)
+        grid = make_grid(samples, nrow=self.nrow)
 
         # Save grid of generated images
         filepath = os.path.join(self.samples_dir, f"{image_name}_{iteration:06d}.png")

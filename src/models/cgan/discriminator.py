@@ -8,6 +8,7 @@ from torch import nn
 import torch.nn.functional as F
 from src.models.base.base_discriminator import BaseDiscriminator
 
+
 class CGANDiscriminator(BaseDiscriminator):
     """
     Discriminator network for Conditional GAN.
@@ -21,7 +22,6 @@ class CGANDiscriminator(BaseDiscriminator):
         hidden_dim_y,
         combined_hidden_dim,
         num_classes,
-        use_batch_norm=True,
         use_dropout=True,
         dropout_prob=0.5,
     ):
@@ -41,35 +41,26 @@ class CGANDiscriminator(BaseDiscriminator):
         self.img_size = int(np.prod(img_shape))
         self.num_classes = num_classes
 
-        layers_x = [
+        self.x_mapper = nn.Sequential(
             nn.Linear(self.img_size, hidden_dim_x),
-            nn.LeakyReLU(0.2, inplace=True),
-        ]
-        layers_y = [
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout_prob) if use_dropout else nn.Identity(),
+        )
+
+        self.y_mapper = nn.Sequential(
             nn.Linear(num_classes, hidden_dim_y),
-            nn.LeakyReLU(0.2, inplace=True),
-        ]
-        if use_dropout:
-            layers_x.append(nn.Dropout(dropout_prob))
-            layers_y.append(nn.Dropout(dropout_prob))
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout_prob) if use_dropout else nn.Identity(),
+        )
 
-        self.x_mapper = nn.Sequential(*layers_x)
-        self.y_mapper = nn.Sequential(*layers_y)
-
-        post_concat = [
+        self.post_mapper = nn.Sequential(
             nn.Linear(hidden_dim_x + hidden_dim_y, combined_hidden_dim),
-            nn.LeakyReLU(0.2, inplace=True),
-        ]
-        if use_batch_norm:
-            post_concat.append(nn.BatchNorm1d(combined_hidden_dim))
-        if use_dropout:
-            post_concat.append(nn.Dropout(dropout_prob))
-        post_concat += [
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout_prob) if use_dropout else nn.Identity(),
             nn.Linear(combined_hidden_dim, 1),
-        ]
-        self.post_mapper = nn.Sequential(*post_concat)
+        )
 
-    def forward(self, img, y):
+    def forward(self, img, y=None):
         """
         Args:
             img: Input images [batch_size, C, H, W]
@@ -77,8 +68,9 @@ class CGANDiscriminator(BaseDiscriminator):
         Returns:
             Real/fake logits [batch_size, 1]
         """
-        if y.dim() == 1 or (y.dim() == 2 and y.size(1) == 1):  # 兼容 (batch,1)
+        if y.dim() == 1 or (y.dim() == 2 and y.size(1) == 1):
             y = F.one_hot(y.view(-1), num_classes=self.num_classes)
+
         y = y.float()
         x_flat = img.view(img.size(0), -1)
         x_proj = self.x_mapper(x_flat)

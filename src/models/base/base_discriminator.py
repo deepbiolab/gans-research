@@ -17,7 +17,7 @@ class BaseDiscriminator(nn.Module, ABC):
         self.config = config
 
     @abstractmethod
-    def forward(self, img):
+    def forward(self, img, y=None):
         """
         Forward pass of the discriminator.
 

@@ -4,8 +4,8 @@ Training script for Conditional GAN (CGAN) on MNIST or similar datasets.
 
 import argparse
 import yaml
-
 import torch
+
 from src.models import CGAN
 from src.losses import VanillaGANLoss
 from src.training import GANTrainer
@@ -17,6 +17,17 @@ class CGANTrainer(GANTrainer):
     """
     Trainer for Conditional GAN (CGAN).
     """
+
+    def __init__(
+        self,
+        model,
+        config,
+        train_dataloader,
+        valid_dataloader,
+        loss_fn,
+    ):
+        super().__init__(model, config, train_dataloader, valid_dataloader, loss_fn)
+        self.nrow = 10 # Number of images in each row of the grid == number of labels
 
     def train_step(self, real_batch, iteration):
         """
@@ -79,6 +90,24 @@ class CGANTrainer(GANTrainer):
         # Return losses for logging
         losses = {"g_loss": g_loss.item(), "d_loss": d_loss.item()}
         return losses
+
+    def generate_samples(self, sampling_num: int = 16) -> torch.Tensor:
+        """
+        Generate and save sample images.
+        """
+        # Generate conditional samples: evenly sample all classes
+        num_classes = self.model.generator.num_classes
+        images_per_class = sampling_num // num_classes
+
+        self.model.eval()
+        with torch.no_grad():
+            labels = torch.arange(num_classes).repeat(images_per_class, 1).reshape(-1)
+            labels = labels.to(self.device)
+            batch_size = labels.shape[0]
+            samples = self.model.generate_images(batch_size, labels=labels)
+
+        self.model.train()
+        return samples
 
 
 def main():

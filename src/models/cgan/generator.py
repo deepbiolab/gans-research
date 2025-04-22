@@ -22,7 +22,6 @@ class CGANGenerator(BaseGenerator):
         combined_hidden_dim,
         img_shape,
         num_classes,
-        use_batch_norm=True,
         use_dropout=True,
         dropout_prob=0.5,
     ):
@@ -44,37 +43,26 @@ class CGANGenerator(BaseGenerator):
         self.img_size = int(np.prod(img_shape))
         self.num_classes = num_classes
 
-        layers_z = [
+        self.z_mapper = nn.Sequential(
             nn.Linear(latent_dim, hidden_dim_z),
             nn.ReLU(inplace=True),
-        ]
-        layers_y = [
+            nn.Dropout(dropout_prob) if use_dropout else nn.Identity(),
+        )
+        self.y_mapper = nn.Sequential(
             nn.Linear(num_classes, hidden_dim_y),
             nn.ReLU(inplace=True),
-        ]
-        if use_dropout:
-            layers_z.append(nn.Dropout(dropout_prob))
-            layers_y.append(nn.Dropout(dropout_prob))
+            nn.Dropout(dropout_prob) if use_dropout else nn.Identity(),
+        )
 
-        self.z_mapper = nn.Sequential(*layers_z)
-        self.y_mapper = nn.Sequential(*layers_y)
-
-        # After concatenation
-        post_concat = [
+        self.post_mapper = nn.Sequential(
             nn.Linear(hidden_dim_z + hidden_dim_y, combined_hidden_dim),
             nn.ReLU(inplace=True),
-        ]
-        if use_batch_norm:
-            post_concat.append(nn.BatchNorm1d(combined_hidden_dim))
-        if use_dropout:
-            post_concat.append(nn.Dropout(dropout_prob))
-        post_concat += [
+            nn.Dropout(dropout_prob) if use_dropout else nn.Identity(),
             nn.Linear(combined_hidden_dim, self.img_size),
-            # nn.Sigmoid(),  # Output in [0, 1] for MNIST
-        ]
-        self.post_mapper = nn.Sequential(*post_concat)
+            nn.Tanh(),
+        )
 
-    def forward(self, z, y):
+    def forward(self, z, y=None):
         """
         Args:
             z: Latent vector [batch_size, latent_dim]
@@ -82,7 +70,7 @@ class CGANGenerator(BaseGenerator):
         Returns:
             Generated images [batch_size, C, H, W]
         """
-        if y.dim() == 1 or (y.dim() == 2 and y.size(1) == 1):  # 兼容 (batch,1)
+        if y.dim() == 1 or (y.dim() == 2 and y.size(1) == 1):
             y = F.one_hot(y.view(-1), num_classes=self.num_classes)
         y = y.float()
         z_proj = self.z_mapper(z)

@@ -44,7 +44,6 @@ class CGAN(BaseGAN):
             combined_hidden_dim=self.combined_hidden_dim,
             img_shape=self.img_shape,
             num_classes=self.num_classes,
-            use_batch_norm=self.config["model"].get("use_batch_norm", True),
             use_dropout=self.config["model"].get("use_dropout", True),
             dropout_prob=self.config["model"].get("dropout_prob", 0.5),
         )
@@ -57,7 +56,6 @@ class CGAN(BaseGAN):
             hidden_dim_y=self.hidden_dim_y,
             combined_hidden_dim=self.combined_hidden_dim,
             num_classes=self.num_classes,
-            use_batch_norm=self.config["model"].get("use_batch_norm", True),
             use_dropout=self.config["model"].get("use_dropout", True),
             dropout_prob=self.config["model"].get("dropout_prob", 0.5),
         )

@@ -18,7 +18,7 @@ class BaseGenerator(nn.Module, ABC):
         self.latent_dim = config["model"]["latent_dim"]
 
     @abstractmethod
-    def forward(self, z):
+    def forward(self, z, y=None):
         """
         Forward pass of the generator.
 
