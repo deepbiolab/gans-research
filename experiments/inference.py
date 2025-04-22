@@ -26,7 +26,9 @@ def load_model(config, logger):
             map_location=device,
             config=config,
         )
-        logger.info(f"Successfully loaded {model.__class__.__name__} from {checkpoint_path}")
+        logger.info(
+            f"Successfully loaded {model.__class__.__name__} from {checkpoint_path}"
+        )
     except ValueError as e:
         logger.error(str(e))
         raise
@@ -61,12 +63,16 @@ def generate(model, config, logger, num_samples=None, labels=None):
             labels = labels.unsqueeze(0)
 
         samples_per_label = num_samples or 1
-        logger.info(f"Generating {samples_per_label} samples for each label in {labels.tolist()}...")
+        logger.info(
+            f"Generating {samples_per_label} samples for each label in {labels.tolist()}..."
+        )
         all_images = []
         all_labels = []
         for label in labels:
             label_batch = label.repeat(samples_per_label)
-            images = model.generate_images(batch_size=samples_per_label, labels=label_batch)
+            images = model.generate_images(
+                batch_size=samples_per_label, labels=label_batch
+            )
             all_images.append(images)
             all_labels.extend([label.item()] * samples_per_label)
         images = torch.cat(all_images, dim=0)
@@ -171,7 +177,9 @@ def main():
     model = load_model(config, logger)
 
     # Generate images
-    images = generate(model, config, logger, num_samples=args.num_samples, labels=labels)
+    images = generate(
+        model, config, logger, num_samples=args.num_samples, labels=labels
+    )
 
     # Save images
     save_images(images, config, logger, output_path=args.out)
