@@ -11,17 +11,21 @@ experiment:
 
 data:
   name: mnist
-  batch_size: 64
+  batch_size: 100
   image_size: 28
   channels: 1
-  num_classes: 10  # Number of class labels for conditioning
+  num_classes: 10 # Number of class labels for conditioning
 
 model:
   name: cgan
   latent_dim: 100
-  hidden_dim: 256
-  embedding_dim: 50  # Dimension of condition embedding
+  hidden_dim_z: 200
+  hidden_dim_y: 1000
+  combined_hidden_dim: 1200
+  embedding_dim: 10 # Dimension of condition embedding
   use_batch_norm: true
+  use_dropout: true
+  dropout_prob: 0.5
 
 training:
   optimizer: adam
@@ -29,16 +33,18 @@ training:
   lr_d: 0.0002
   beta1: 0.5
   beta2: 0.999
-  use_scheduler: false
+  use_scheduler: true
+  scheduler_type: exponential
+  scheduler_gamma: 0.99996
   n_critic: 1
 
 evaluation:
-  use_fid: true
-  batch_size: 64
-  num_samples: 100
+  use_fid: false
+  batch_size: 100
+  num_samples: 1000
   eval_epoch_interval: 1
 
 logging:
-  use_tensorboard: true
-  use_wandb: false
+  use_tensorboard: false
+  use_wandb: true
   wandb_project: gans-research

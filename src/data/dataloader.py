@@ -1,12 +1,13 @@
 """
-Datasets and DataLoaders for PyTorch.
+Datasets and DataLoaders for PyTorch (supports GAN/CGAN).
 """
 
+from typing import Tuple, Any, Dict
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 
-def get_dataset(config):
+def get_dataset(config: Dict[str, Any]) -> Tuple[Any, Any]:
     """
     Create a dataset based on the configuration.
 
@@ -14,7 +15,7 @@ def get_dataset(config):
         config: Configuration dictionary
 
     Returns:
-        dataset: PyTorch dataset
+        train_dataset, test_dataset: PyTorch datasets, each returns (img, label)
     """
     dataset_name = config["data"]["name"]
     image_size = config["data"]["image_size"]
@@ -81,9 +82,6 @@ def get_dataset(config):
             root="./datasets", split="test", download=False, transform=transform
         )
     elif dataset_name in ["celeba_hq", "ffhq"]:
-        # For high-res datasets like CelebA-HQ and FFHQ
-        # Note: These datasets require external download and preprocessing
-        # This is just a placeholder - you'll need to implement custom dataset classes
         raise NotImplementedError(
             f"Dataset {dataset_name} requires custom implementation and preprocessing. "
             f"Please add your implementation in src/data/{dataset_name}.py"
@@ -94,15 +92,15 @@ def get_dataset(config):
     return train_dataset, test_dataset
 
 
-def create_dataloader(config):
+def create_dataloader(config: Dict[str, Any]):
     """
-    Create a data loader for the specified dataset.
+    Create DataLoaders for training and validation.
 
     Args:
         config: Configuration dictionary
 
     Returns:
-        dataloader: PyTorch DataLoader
+        train_dataloader, valid_dataloader: Each yields (img, label) tuples for CGAN
     """
     train_dataset, valid_dataset = get_dataset(config)
     batch_size = config["data"]["batch_size"]
@@ -114,7 +112,7 @@ def create_dataloader(config):
         shuffle=True,
         num_workers=num_workers,
         pin_memory=True,
-        drop_last=True,  # Drop the last incomplete batch
+        drop_last=True,
     )
     valid_dataloader = DataLoader(
         valid_dataset,
@@ -122,6 +120,6 @@ def create_dataloader(config):
         shuffle=False,
         num_workers=num_workers,
         pin_memory=True,
-        drop_last=False,  # Do not drop the last incomplete batch
+        drop_last=False,
     )
     return train_dataloader, valid_dataloader
