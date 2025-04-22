@@ -1,5 +1,7 @@
 # GANs Research Reproduction from Scratch
 
+![](./assets/cgan_training_animation.gif)
+
 ```mermaid
 graph LR
     subgraph Basic_Models["Basic Models (2014-2015)"]
@@ -129,12 +131,29 @@ evaluation:
 
 ### Inference
 
-**Command-Line Inference**: example for `vanilla-gan`
+#### Unconditional Generation
 
-To generate images using a trained GAN model:
+Example: generate images using a trained Vanilla GAN model on MINIST:
 
 ```
 python experiments/inference.py --config configs/vanilla_gan.yaml
+```
+
+
+#### Conditional Generation
+
+Example: generate images using a trained Conditional GAN model on MINIST:
+
+- generate multiple images for each label:
+
+```python
+python experiments/inference.py --config configs/cgan.yaml --labels 0,1,2,3,4,5,6,7,8,9 --num_samples 5
+```
+
+- generate one image for each label:
+
+```
+python experiments/inference.py --config configs/cgan.yaml --labels 2,5
 ```
 
 **Configuration Example**
