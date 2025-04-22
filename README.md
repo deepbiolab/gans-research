@@ -59,7 +59,7 @@ This repository contains implementations of key Generative Adversarial Network (
    - [x] **DCGAN**: Introduced convolutional architectures and established key architectural guidelines for stable GAN training.
    
 2. **Training Stability Improvements**
-   - [ ] **WGAN**: Improved training stability using Wasserstein distance.
+   - [x] **WGAN**: Improved training stability using Wasserstein distance.
    - [ ] **WGAN-GP**: Enhanced WGAN with gradient penalty.
    
 3. **Conditional Control**

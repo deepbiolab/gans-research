@@ -32,15 +32,15 @@ class WGAN(BaseGAN):
 
         # Build the generator and critic (discriminator)
         self.generator = self.build_generator()
-        self.critic = self.build_critic()
+        self.discriminator = self.build_discriminator()
 
         # Initialize weights
         self.generator.apply(self.generator.init_weights)
-        self.critic.apply(self.critic.init_weights)
+        self.discriminator.apply(self.discriminator.init_weights)
 
         # Move models to the specified device
         self.generator.to(self.device)
-        self.critic.to(self.device)
+        self.discriminator.to(self.device)
 
     def build_generator(self) -> nn.Module:
         """

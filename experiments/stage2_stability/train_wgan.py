@@ -85,7 +85,6 @@ class WGANTrainer(GANTrainer):
         # -----------------
         #  Train Critic (Discriminator)
         # -----------------
-        d_loss = 0.0
         for _ in range(self.n_critic):
             self.d_optimizer.zero_grad()
 
@@ -108,16 +107,14 @@ class WGANTrainer(GANTrainer):
             fake_preds = self.model.discriminator(fake_imgs_aug)
 
             # WGAN loss (no labels)
-            critic_loss = self.criterion.discriminator_loss(real_preds, fake_preds)
-            critic_loss.backward()
+            d_loss = self.criterion.discriminator_loss(real_preds, fake_preds)
+            d_loss.backward()
             self.d_optimizer.step()
 
             # Weight clipping (WGAN original)
             if self.use_weight_clipping:
                 for p in self.model.discriminator.parameters():
                     p.data.clamp_(self.clip_value[0], self.clip_value[1])
-
-            d_loss = critic_loss  # Track last critic loss for logging
 
         # -----------------
         #  Train Generator

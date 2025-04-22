@@ -22,14 +22,14 @@ model:
   latent_dim: 100
   ngf: 64
   ndf: 64
-  use_batch_norm: false  # WGAN often uses layer norm instead
-  use_layer_norm: true
+  use_batch_norm: true
 
 training:
   optimizer: rmsprop  # WGAN originally used RMSProp
   lr_g: 0.00005
   lr_d: 0.00005
   n_critic: 5  # Update critic 5 times for each generator update
+  use_weight_clipping: true
   clip_value: [-0.01, 0.01]
 
 evaluation:
@@ -49,11 +49,11 @@ logging:
 
 # Tricks for stable training
 ema:
-  enable: true
+  enable: false
   beta: 0.995
   update_after_step: 100
   update_every: 1
 
 augment:
-  enable: true
+  enable: false
   policy: "color,translation"
