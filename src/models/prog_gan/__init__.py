@@ -46,13 +46,13 @@ class ProGAN(BaseGAN):
         """
         Build the ProGAN generator network.
         """
-        return Generator(max_resolution=self.max_resolution, latent_dim=self.latent_dim)
+        return Generator(self.config)
 
     def build_discriminator(self) -> nn.Module:
         """
         Build the ProGAN discriminator network.
         """
-        return Discriminator(max_resolution=self.max_resolution)
+        return Discriminator(self.config)
 
     def generate_images(
         self, batch_size=None, latent_vectors=None, current_res=None, alpha=None

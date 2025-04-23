@@ -122,12 +122,19 @@ class Discriminator(BaseDiscriminator):
         max_resolution: Maximum input resolution (must be a power of 2)
     """
 
-    def __init__(self, max_resolution: int):
-        if config is None:
-            config = {"model": {}}
+    def __init__(self, config):
         super().__init__(config)
+        self.config = config
+        self.max_resolution = config["data"].get("image_size", 128)
+        self.img_channels = config["data"]["channels"]
+        self.fmap_base = config["model"].get("feature_maps", 8192)
+        self.fmap_decay = config["model"].get("fmap_decay", 1.0)
+        self.fmap_max = config["model"].get("fmap_max", 512)
+
         # Calculate all resolutions from 4x4 up to max_resolution
-        self.resolutions = [2**i for i in range(2, int(np.log2(max_resolution)) + 1)]
+        self.resolutions = [
+            2**i for i in range(2, int(np.log2(self.max_resolution)) + 1)
+        ]
         # Container for discriminator blocks
         self.blocks = nn.ModuleList()
         # Container for from_rgb conversion layers
@@ -137,18 +144,39 @@ class Discriminator(BaseDiscriminator):
         for stage in reversed(range(1, len(self.resolutions))):
             # Add a new block that halves the resolution
             self.blocks.append(
-                DiscriminatorBlock(num_filters(stage + 1), num_filters(stage))
+                DiscriminatorBlock(
+                    num_filters(
+                        stage + 1, self.fmap_base, self.fmap_decay, self.fmap_max
+                    ),
+                    num_filters(stage, self.fmap_base, self.fmap_decay, self.fmap_max),
+                )
             )
             # Add RGB conversion for this resolution
-            self.from_rgb.append(nn.Conv2d(3, num_filters(stage + 1), kernel_size=1))
+            self.from_rgb.append(
+                nn.Conv2d(
+                    self.img_channels,
+                    num_filters(
+                        stage + 1, self.fmap_base, self.fmap_decay, self.fmap_max
+                    ),
+                    kernel_size=1,
+                )
+            )
 
         # Initialize the last block (4x4)
-        self.last_block = DiscriminatorLastBlock(num_filters(1))
+        self.last_block = DiscriminatorLastBlock(
+            num_filters(1, self.fmap_base, self.fmap_decay, self.fmap_max)
+        )
         # RGB conversion for the lowest resolution (4x4)
-        self.from_rgb.append(nn.Conv2d(3, num_filters(1), kernel_size=1))
+        self.from_rgb.append(
+            nn.Conv2d(
+                self.img_channels,
+                num_filters(1, self.fmap_base, self.fmap_decay, self.fmap_max),
+                kernel_size=1,
+            )
+        )
 
     def forward(
-        self, x: torch.Tensor, current_res: int, alpha: float = 1.0
+        self, img: torch.Tensor, current_res: int, alpha: float = 1.0
     ) -> torch.Tensor:
         """
         Forward pass for the discriminator.
@@ -167,7 +195,7 @@ class Discriminator(BaseDiscriminator):
         # If we're at the lowest resolution (4x4), use only the last block
         if res_idx == 0:
             # Convert RGB to features
-            out = self.from_rgb[-1](x)
+            out = self.from_rgb[-1](img)
             # Process through the last block
             out = self.last_block(out)
             return out
@@ -175,16 +203,15 @@ class Discriminator(BaseDiscriminator):
         # For higher resolutions, implement fade-in mechanism
 
         # Process input at current resolution
-        high_in = self.from_rgb[-(res_idx + 1)](x)
+        high_in = self.from_rgb[-(res_idx + 1)](img)
         high_out = self.blocks[0](high_in)
 
         # Process downsampled input at previous resolution
-        x_down = F.avg_pool2d(x, kernel_size=2)
+        x_down = F.avg_pool2d(img, kernel_size=2)
         low_in = self.from_rgb[-res_idx](x_down)
 
         # Blend the outputs based on alpha
-        blended = high_out * alpha + low_in * (1 - alpha)
-        out = blended
+        out = high_out * alpha + low_in * (1 - alpha)
 
         # Process through remaining blocks
         for block in self.blocks[1:res_idx]:

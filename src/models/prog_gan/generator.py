@@ -126,40 +126,64 @@ class Generator(BaseGenerator):
         latent_dim: Dimension of the input latent vector
     """
 
-    def __init__(self, max_resolution: int, latent_dim: int):
-        if config is None:
-            config = {"model": {"latent_dim": latent_dim}}
+    def __init__(self, config):
         super().__init__(config)
+        self.config = config
+        self.max_resolution = config["data"].get("image_size", 128)
+        self.latent_dim = config["model"]["latent_dim"]
+        self.img_channels = config["data"]["channels"]
+        self.fmap_base = config["model"].get("feature_maps", 8192)
+        self.fmap_decay = config["model"].get("fmap_decay", 1.0)
+        self.fmap_max = config["model"].get("fmap_max", 512)
 
         # Calculate all resolutions from 4x4 up to max_resolution
-        self.resolutions = [2**i for i in range(2, int(np.log2(max_resolution)) + 1)]
+        self.resolutions = [
+            2**i for i in range(2, int(np.log2(self.max_resolution)) + 1)
+        ]
         # Container for generator blocks
         self.blocks = nn.ModuleList()
         # Container for to_rgb conversion layers
         self.to_rgb = nn.ModuleList()
 
         # Initialize the first block (4x4)
-        self.blocks.append(GeneratorFirstBlock(latent_dim))
+        self.blocks.append(GeneratorFirstBlock(self.latent_dim))
         # RGB conversion for the first resolution
-        self.to_rgb.append(nn.Conv2d(num_filters(1), 3, kernel_size=1))
+        self.to_rgb.append(
+            nn.Conv2d(
+                num_filters(1, self.fmap_base, self.fmap_decay, self.fmap_max),
+                self.img_channels,
+                kernel_size=1,
+            )
+        )
 
         # Initialize progressive blocks for higher resolutions
         for stage in range(1, len(self.resolutions)):
-            # Add a new block that doubles the resolution
             self.blocks.append(
-                GeneratorBlock(num_filters(stage), num_filters(stage + 1))
+                GeneratorBlock(
+                    num_filters(stage, self.fmap_base, self.fmap_decay, self.fmap_max),
+                    num_filters(
+                        stage + 1, self.fmap_base, self.fmap_decay, self.fmap_max
+                    ),
+                )
             )
-            # Add RGB conversion for this resolution
-            self.to_rgb.append(nn.Conv2d(num_filters(stage + 1), 3, kernel_size=1))
+            self.to_rgb.append(
+                nn.Conv2d(
+                    num_filters(
+                        stage + 1, self.fmap_base, self.fmap_decay, self.fmap_max
+                    ),
+                    self.img_channels,
+                    kernel_size=1,
+                )
+            )
 
     def forward(
-        self, x: torch.Tensor, current_res: int, alpha: float = 1.0
+        self, z: torch.Tensor, current_res: int, alpha: float = 1.0
     ) -> torch.Tensor:
         """
         Forward pass for the generator.
 
         Args:
-            x: Latent vector of shape (B, latent_dim)
+            z: Latent vector of shape (B, latent_dim)
             current_res: Target output resolution (must be in self.resolutions)
             alpha: Fade-in blending coefficient (1.0 = only new block, 0.0 = only previous block)
 
@@ -170,7 +194,7 @@ class Generator(BaseGenerator):
         res_idx = self.resolutions.index(current_res)
 
         # Process through the first block
-        x = self.blocks[0](x)
+        x = self.blocks[0](z)
 
         # If we're at the lowest resolution, convert directly to RGB
         if res_idx == 0:
