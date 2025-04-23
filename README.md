@@ -70,7 +70,7 @@ This repository contains implementations of key Generative Adversarial Network (
    - [x] **Conditional GAN**: Added ability to control generation with explicit labels.
    
 4. **High-Quality Generation**
-   - [ ] **Progressive GAN**: Introduced progressive growing methodology for generating high-resolution images.
+   - [x] **Progressive GAN**: Introduced progressive growing methodology for generating high-resolution images.
    - [ ] **StyleGAN v1**: Combined progressive growing with style-based generation.
    - [ ] **StyleGAN v2**: Improved architecture and removing progressive growing.
    - [ ] **StyleGAN v3**: Added alias-free generation techniques.
