@@ -129,7 +129,7 @@ class Generator(BaseGenerator):
     def __init__(self, config):
         super().__init__(config)
         self.config = config
-        self.max_resolution = config["data"].get("image_size", 128)
+        self.max_resolution = config["data"].get("image_size", 512)
         self.latent_dim = config["model"]["latent_dim"]
         self.img_channels = config["data"]["channels"]
         self.fmap_base = config["model"].get("feature_maps", 8192)

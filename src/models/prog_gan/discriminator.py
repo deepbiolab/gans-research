@@ -125,7 +125,7 @@ class Discriminator(BaseDiscriminator):
     def __init__(self, config):
         super().__init__(config)
         self.config = config
-        self.max_resolution = config["data"].get("image_size", 128)
+        self.max_resolution = config["data"].get("image_size", 512)
         self.img_channels = config["data"]["channels"]
         self.fmap_base = config["model"].get("feature_maps", 8192)
         self.fmap_decay = config["model"].get("fmap_decay", 1.0)
@@ -192,6 +192,8 @@ class Discriminator(BaseDiscriminator):
         # Find the index of the current resolution
         res_idx = self.resolutions.index(current_res)
 
+        block_idx = len(self.resolutions) - res_idx - 1
+
         # If we're at the lowest resolution (4x4), use only the last block
         if res_idx == 0:
             # Convert RGB to features
@@ -203,19 +205,19 @@ class Discriminator(BaseDiscriminator):
         # For higher resolutions, implement fade-in mechanism
 
         # Process input at current resolution
-        high_in = self.from_rgb[-(res_idx + 1)](img)
-        high_out = self.blocks[0](high_in)
+        high_in = self.from_rgb[block_idx](img)
+        high_out = self.blocks[block_idx](high_in)
 
         # Process downsampled input at previous resolution
         x_down = F.avg_pool2d(img, kernel_size=2)
-        low_in = self.from_rgb[-res_idx](x_down)
+        low_in = self.from_rgb[block_idx + 1](x_down)
 
         # Blend the outputs based on alpha
         out = high_out * alpha + low_in * (1 - alpha)
 
         # Process through remaining blocks
-        for block in self.blocks[1:res_idx]:
-            out = block(out)
+        for i in range(block_idx + 1, len(self.blocks)):
+            out = self.blocks[i](out)
 
         # Process through the last block
         out = self.last_block(out)

@@ -1,35 +1,33 @@
-# Configuration for Progressive GAN on MINIST
+# Progressive Growing GAN (ProGAN) config
 experiment:
-  name: prog_gan_minist
+  name: prog_gan_mnist
   seed: 42
   output_dir: ./outputs/prog_gan
   log_interval: 200
   sampling_num: 16
   save_interval: 1000
+  num_epochs: 80
   device: cuda
-  
+
 data:
-  name: minist
-  channels: 3
-  # Progressive training uses different batch sizes for different resolutions
+  name: mnist          
+  channels: 1           
+  image_size: 512      
   batch_sizes:
     4: 128
-    8: 128
-    16: 128
-    32: 64
+    8: 64
+    16: 64
+    32: 32
     64: 32
     128: 16
-    256: 8
-    512: 4
-    1024: 2
 
 model:
   name: prog_gan
   latent_dim: 512
-  feature_maps: 16  # Base feature maps, doubles with each resolution decrease
-  use_minibatch_stddev: true
-  use_equalized_lr: true
-  use_pixelnorm: true
+  feature_maps: 8192      
+  fmap_decay: 1.0         
+  fmap_max: 512           
+  starting_resolution: 4 
 
 training:
   optimizer: adam
@@ -38,16 +36,17 @@ training:
   beta1: 0.0
   beta2: 0.99
   epsilon: 1e-8
-  lambda_drift: 0.001  # Epsilon drift penalty
-  
-  # Progressive growing parameters
-  starting_resolution: 4
-  target_resolution: 1024
-  phase_iterations: 600000  # Number of images shown before increasing resolution
-  transition_iterations: 600000  # Number of images for fade-in transition
+  epsilon_drift: 0.001     
+  n_critic: 1               
+  lambda_gp: 10.0
+
+progressive:
+  resolutions: [4, 8, 16, 32, 64, 128, 256, 512]  
+  fadein_kimgs: 600000
+  images_per_stage: 600000
 
 evaluation:
-  use_fid: true
+  use_fid: false
   batch_size: 64
   num_samples: 100
   eval_epoch_interval: 1
@@ -57,13 +56,6 @@ inference:
   num_samples: 16
 
 logging:
-  use_tensorboard: true
-  use_wandb: false
+  use_tensorboard: false
+  use_wandb: true
   wandb_project: gans-research
-
-# Tricks for stable training
-ema:
-  enable: true
-  beta: 0.995
-  update_after_step: 100
-  update_every: 1

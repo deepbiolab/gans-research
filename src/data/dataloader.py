@@ -103,7 +103,20 @@ def create_dataloader(config: Dict[str, Any], override_image_size: int = None):
         train_dataloader, valid_dataloader: Each yields (img, label) tuples for CGAN
     """
     train_dataset, valid_dataset = get_dataset(config, override_image_size)
-    batch_size = config["data"]["batch_size"]
+
+    # Determine batch size: prefer batch_sizes for progressive, fallback to batch_size
+    if "batch_sizes" in config["data"]:
+        # Use override_image_size (current resolution) as key; fallback to image_size
+        res = override_image_size or config["data"]["image_size"]
+        batch_sizes = config["data"]["batch_sizes"]
+        if res in batch_sizes:
+            batch_size = batch_sizes[res]
+        else:
+            # fallback: use the largest available or raise error
+            batch_size = list(batch_sizes.values())[-1]
+            print(f"Warning: resolution {res} not in batch_sizes. Using batch_size={batch_size}")
+    else:
+        batch_size = config["data"]["batch_size"]
     num_workers = config["experiment"].get("num_workers", 4)
 
     train_dataloader = DataLoader(

@@ -1,25 +1,39 @@
 """
 Training script for ProGAN with WGAN-GP, progressive growing, and fade-in.
+
+This script implements the Progressive Growing of GANs methodology (Karras et al., 2018)
+with Wasserstein GAN with Gradient Penalty (WGAN-GP) loss function. The training
+progressively increases the resolution of generated images, starting from 4x4 and
+gradually growing to higher resolutions.
 """
 
 import argparse
+import time
 import yaml
 import torch
+from tqdm import tqdm
 from src.models import ProgGAN
-from src.losses import WGANGPLoss
+from src.losses import ProgGANGPLoss
 from src.training import GANTrainer
 from src.data.dataloader import create_dataloader
 from src.utils.set_experiment import configure_experiment
-
-try:
-    from ema_pytorch import EMA
-except ImportError:
-    EMA = None
+from src.utils.visualization import create_animation
 
 
 class ProGANGPTrainer(GANTrainer):
     """
-    ProGAN Trainer: WGAN-GP loss, drift penalty, EMA, progressive growing (fade-in).
+    ProGAN Trainer: Supports progressive growing (fade-in), WGAN-GP loss, and drift penalty.
+
+    This trainer extends the base GANTrainer to implement progressive growing of GANs,
+    where the resolution of generated images increases gradually during training.
+    It also implements the WGAN-GP loss function with an additional drift penalty term.
+
+    Args:
+        model: The ProgGAN model
+        config: Configuration dictionary
+        train_dataloader: Training data loader
+        valid_dataloader: Validation data loader
+        loss_fn: Loss function (ProgGANGPLoss)
     """
 
     def __init__(
@@ -32,170 +46,330 @@ class ProGANGPTrainer(GANTrainer):
     ):
         super().__init__(model, config, train_dataloader, valid_dataloader, loss_fn)
 
-        tricks = config
+        # Drift penalty coefficient to prevent discriminator values from drifting too far from zero
+        self.epsilon_drift = config.get("training", {}).get("epsilon_drift", 0.001)
 
-        # Drift penalty
-        self.epsilon_drift = tricks.get("training", {}).get("epsilon_drift", 0.001)
-        
-		# n_critic
-        self.n_critic = tricks.get("training", {}).get("n_critic", 1)
-        
-		# EMA
-        self.use_ema = tricks.get("ema", {}).get("enable", False)
-        self.ema = None
-        if self.use_ema and EMA is not None:
-            self.ema = EMA(
-                self.model.generator,
-                beta=tricks["ema"].get("beta", 0.999),
-                update_after_step=tricks["ema"].get("update_after_step", 100),
-                update_every=tricks["ema"].get("update_every", 1),
-            )
-            self.logger.info("EMA enabled for generator.")
-        elif self.use_ema:
-            self.logger.warning("EMA requested but ema_pytorch is not installed.")
+        # Number of discriminator updates per generator update
+        self.n_critic = config.get("training", {}).get("n_critic", 1)
 
-        # Progressive growing
-        # 需要在config["progressive"]中指定：resolutions, images_per_stage, fadein_kimgs
-        self.progressive = tricks.get("progressive", {})
-        self.resolutions = self.progressive.get("resolutions", [4, 8, 16, 32, 64])
-        self.images_per_stage = self.progressive.get("images_per_stage", 800_000)
-        self.fadein_kimgs = self.progressive.get("fadein_kimgs", 800_000)
-        self.cur_stage = 0
-        self.total_images = 0
-        self.fadein = True
+        # Progressive growing configuration
+        self.progressive_cfg = config.get("progressive", {})
+        # List of resolutions to progress through (e.g., [4, 8, 16, 32, 64, 128])
+        self.resolutions = self.progressive_cfg.get(
+            "resolutions", [4, 8, 16, 32, 64, 128, 256, 512]
+        )
+        # Number of images to train at each resolution stage
+        self.images_per_stage = self.progressive_cfg.get("images_per_stage", 100_000)
+        # Number of images over which to fade in new layers
+        self.fadein_kimgs = self.progressive_cfg.get("fadein_kimgs", 100_000)
+        # Current resolution stage index
+        self.stage = 0
+        # Current resolution (e.g., 4, 8, 16, etc.)
+        self.current_res = self.resolutions[self.stage]
+        # Fade-in coefficient (0.0 to 1.0)
         self.alpha = 0.0
-        self.max_stage = len(self.resolutions) - 1
+        # Counter for number of images processed during training
+        self.images_seen = 0
+        # Number of images for the fade-in phase
+        self.fadein_images = self.fadein_kimgs
+        # Total images to process in each resolution stage
+        self.total_images_in_stage = self.images_per_stage
 
-        # 初始化分辨率
-        self.set_stage(0)
-
-    def set_stage(self, stage):
-        """
-        切换到指定stage，设置模型分辨率和DataLoader
-        """
-        self.cur_stage = stage
-        res = self.resolutions[stage]
-        self.model.set_resolution(res)
-        # 如果DataLoader需要切换分辨率，重新创建
+        # Create dataloaders with the initial resolution
         self.train_dataloader, self.valid_dataloader = create_dataloader(
-            self.config, override_image_size=res
+            self.config, override_image_size=self.current_res
         )
-        self.logger.info(
-            f"Switched to resolution {res}x{res}, stage {stage}/{self.max_stage}"
-        )
-        self.alpha = 0.0
-        self.model.set_fadein_alpha(self.alpha)
-        self.fadein = True
 
-    def update_fadein(self, images_processed):
+    def update_progressive(self, batch_size):
         """
-        根据已处理图片数更新fade-in alpha
+        Update resolution stage and alpha value to implement progressive growing and fade-in.
+
+        This method tracks the number of images processed and updates the alpha value
+        for smooth transition between resolution stages. When enough images have been
+        processed at the current stage, it moves to the next resolution.
+
+        Args:
+            batch_size: Number of images in the current batch
+
+        Returns:
+            bool: True if resolution changed and dataloaders need to be rebuilt
         """
-        if self.fadein:
-            fadein_images = self.fadein_kimgs
-            self.alpha = min(1.0, images_processed / fadein_images)
-            self.model.set_fadein_alpha(self.alpha)
-            if self.alpha >= 1.0:
-                self.fadein = False
+        # Increment the counter of processed images
+        self.images_seen += batch_size
+
+        # Update alpha during fade-in phase
+        if self.images_seen < self.fadein_images:
+            self.alpha = self.images_seen / float(self.fadein_images)
+        else:
+            # After fade-in is complete, alpha stays at 1.0
+            self.alpha = 1.0
+
+        # Check if it's time to move to the next resolution stage
+        if self.images_seen >= self.total_images_in_stage:
+            if self.stage + 1 < len(self.resolutions):
+                # Move to next resolution stage
+                self.stage += 1
+                self.current_res = self.resolutions[self.stage]
+                # Reset counters for the new stage
+                self.images_seen = 0
+                self.alpha = 0.0
                 self.logger.info(
-                    f"Fade-in complete for resolution {self.resolutions[self.cur_stage]}x{self.resolutions[self.cur_stage]}"
+                    f"Stage up! Now at resolution {self.current_res}x{self.current_res}"
                 )
+                return True  # Signal that dataloaders need to be rebuilt
+            else:
+                # We've reached the final resolution
+                self.current_res = self.resolutions[-1]
+                self.alpha = 1.0
+        return False
 
-    def maybe_advance_stage(self):
+    def reload_dataloader(self):
         """
-        根据已处理图片数判断是否需要提升分辨率
+        Recreate dataloaders to match the current resolution.
+
+        This method is called when the resolution changes to ensure that
+        the real images match the current generator resolution.
         """
-        images_in_stage = self.total_images - self.cur_stage * (
-            self.images_per_stage + self.fadein_kimgs
+        self.train_dataloader, self.valid_dataloader = create_dataloader(
+            self.config, override_image_size=self.current_res
         )
-        if (
-            images_in_stage >= self.images_per_stage + self.fadein_kimgs
-            and self.cur_stage < self.max_stage
-        ):
-            self.set_stage(self.cur_stage + 1)
 
     def train_step(self, real_batch, iteration):
         """
-        单步训练，支持fade-in和progressive growing
+        Execute a single training step for both generator and discriminator.
+
+        This method implements the WGAN-GP training procedure with n_critic
+        discriminator updates per generator update. It also applies the
+        progressive growing methodology by using the current resolution and alpha.
+
+        Args:
+            real_batch: Batch of real images
+            iteration: Current training iteration
+
+        Returns:
+            dict: Dictionary of loss values and training metrics
         """
+        # 1. Get real images and adjust for current resolution
         if isinstance(real_batch, (list, tuple)):
             real_imgs = real_batch[0].to(self.device)
         else:
             real_imgs = real_batch.to(self.device)
+
         batch_size = real_imgs.size(0)
-        self.total_images += batch_size
 
-        # 更新fade-in
-        if self.fadein:
-            images_in_fadein = self.total_images - (
-                self.cur_stage * (self.images_per_stage + self.fadein_kimgs)
-            )
-            self.update_fadein(images_in_fadein)
-        # 是否提升stage
-        self.maybe_advance_stage()
+        # 2. Train discriminator for n_critic iterations
+        d_loss_total = 0
+        gp_total = 0.0
 
-        # 1. 训练判别器 n_critic 次
-        d_loss_total = 0.0
         for _ in range(self.n_critic):
+            # Zero gradients for discriminator
             self.d_optimizer.zero_grad()
+
+            # Generate random latent vectors and fake images
             z = torch.randn(batch_size, self.model.latent_dim, device=self.device)
-            fake_imgs = self.model.generator(z).detach()
-            real_validity = self.model.discriminator(real_imgs)
-            fake_validity = self.model.discriminator(fake_imgs)
+            fake_imgs = self.model.generator(
+                z, current_res=self.current_res, alpha=self.alpha
+            )
+
+            # Verify that real and fake images have the same shape
+            assert (
+                real_imgs.shape == fake_imgs.shape
+            ), f"real: {real_imgs.shape}, fake: {fake_imgs.shape}"
+
+            # Get discriminator predictions for real and fake images
+            real_preds = self.model.discriminator(
+                real_imgs, current_res=self.current_res, alpha=self.alpha
+            )
+            fake_preds = self.model.discriminator(
+                fake_imgs.detach(), current_res=self.current_res, alpha=self.alpha
+            )
+
+            # Calculate WGAN-GP loss components
+            wasserstein_loss = self.criterion.discriminator_loss(real_preds, fake_preds)
             gp = self.criterion.gradient_penalty(
-                self.model.discriminator, real_imgs, fake_imgs, self.device
+                self.model.discriminator,
+                real_imgs,
+                fake_imgs.detach(),
+                lambda_gp=self.config["training"].get("lambda_gp", 10.0),
+                current_res=self.current_res,
+                alpha=self.alpha,
             )
-            drift = self.epsilon_drift * (real_validity**2).mean()
-            d_loss = (
-                self.criterion.discriminator_loss(real_validity, fake_validity)
-                + gp
-                + drift
-            )
+
+            # Add drift penalty to prevent discriminator values from drifting too far
+            drift = self.epsilon_drift * (real_preds**2).mean()
+
+            # Combine all loss components
+            d_loss = wasserstein_loss + gp + drift
+
+            # Backpropagate and update discriminator
             d_loss.backward()
             self.d_optimizer.step()
-            d_loss_total += d_loss.item()
-        d_loss_total /= self.n_critic
 
-        # 2. 训练生成器
+            # Accumulate loss values for logging
+            d_loss_total += d_loss.item()
+            gp_total += gp.item()
+
+        # Calculate average discriminator loss over n_critic iterations
+        d_loss_avg = d_loss_total / self.n_critic
+        gp_avg = gp_total / self.n_critic
+
+        # 3. Train generator
         self.g_optimizer.zero_grad()
+
+        # Generate new fake images for generator update
         z = torch.randn(batch_size, self.model.latent_dim, device=self.device)
-        fake_imgs = self.model.generator(z)
-        fake_validity = self.model.discriminator(fake_imgs)
-        g_loss = self.criterion.generator_loss(fake_validity)
+        fake_imgs = self.model.generator(
+            z, current_res=self.current_res, alpha=self.alpha
+        )
+
+        # Get discriminator predictions for the fake images
+        fake_preds = self.model.discriminator(
+            fake_imgs, current_res=self.current_res, alpha=self.alpha
+        )
+
+        # Calculate generator loss
+        g_loss = self.criterion.generator_loss(fake_preds)
+
+        # Backpropagate and update generator
         g_loss.backward()
         self.g_optimizer.step()
 
-        if self.ema is not None:
-            self.ema.update()
-
-        return {
+        # 4. Return loss values and training metrics
+        losses = {
             "g_loss": g_loss.item(),
-            "d_loss": d_loss_total,
-            "gp": gp.item(),
-            "drift": drift.item(),
-            "alpha": self.alpha,
-            "stage": self.cur_stage,
-            "resolution": self.resolutions[self.cur_stage],
+            "d_loss": d_loss_avg,
+            "gp_loss": gp_avg,
+            "alpha": float(self.alpha),
+            "current_res": int(self.current_res),
         }
+        return losses
 
     def generate_samples(self, sampling_num: int = 16) -> torch.Tensor:
         """
-        Generate and return sample images using (optionally) EMA weights.
+        Generate sample images using the current generator.
+
+        Args:
+            sampling_num: Number of images to generate
+
+        Returns:
+            torch.Tensor: Batch of generated images
         """
         self.model.eval()
-        generator = (
-            self.ema.ema_model if (self.ema is not None) else self.model.generator
-        )
         with torch.no_grad():
-            z = torch.randn(sampling_num, self.model.latent_dim, device=self.device)
-            samples = generator(z)
+            samples = self.model.generate_images(
+                batch_size=sampling_num,
+                current_res=self.current_res,
+                alpha=self.alpha,
+            )
         self.model.train()
         return samples
+
+    def train(self):
+        """
+        Main training loop for Progressive Growing GAN.
+
+        This method implements the progressive growing training procedure,
+        automatically rebuilding dataloaders when the resolution changes
+        to ensure that real and fake images have matching resolutions.
+        """
+        self.logger.info("Using device: %s", self.device)
+        self.logger.info(
+            "Starting ProGAN progressive training for %d epochs", self.num_epochs
+        )
+
+        start_time = time.time()
+        epoch = 0
+        while epoch < self.num_epochs:
+            self.logger.info(
+                "Starting epoch %d/%d at resolution %dx%d",
+                epoch + 1,
+                self.num_epochs,
+                self.current_res,
+                self.current_res,
+            )
+            for real_batch in tqdm(self.train_dataloader):
+                # Move data to device
+                if isinstance(real_batch, (list, tuple)):
+                    real_batch = [item.to(self.device) for item in real_batch]
+                else:
+                    real_batch = real_batch.to(self.device)
+
+                # Execute training step
+                losses = self.train_step(real_batch, self.iteration)
+
+                # Log progress at specified intervals
+                if self.iteration % self.log_interval == 0:
+                    self.log_progress(losses, epoch, self.iteration, real_batch)
+
+                # Save model checkpoint at specified intervals
+                if self.iteration % self.save_interval == 0:
+                    self.save_checkpoint(epoch, self.iteration)
+
+                # Check if resolution needs to be updated
+                reload_needed = self.update_progressive(
+                    real_batch[0].shape[0]
+                    if isinstance(real_batch, (list, tuple))
+                    else real_batch.shape[0]
+                )
+                self.iteration += 1
+
+                # If resolution changed, rebuild dataloaders and break the inner loop
+                if reload_needed:
+                    self.reload_dataloader()
+                    break  # Exit the dataloader loop to restart with new resolution
+
+            # Update learning rate if scheduler is used
+            if self.g_scheduler is not None:
+                self.g_scheduler.step()
+            if self.d_scheduler is not None:
+                self.d_scheduler.step()
+
+            # Save checkpoint at the end of each epoch
+            self.save_checkpoint(epoch, self.iteration, is_epoch_end=True)
+
+            # Evaluate FID score at specified intervals
+            if self.eval_fid and epoch % self.eval_epoch_interval == 0:
+                self.evaluate_fid(self.iteration)
+
+            epoch += 1
+
+        # Calculate and log total training time
+        total_time = time.time() - start_time
+        self.logger.info("Training completed in %.2f hours", total_time / 3600)
+
+        # Save final model
+        self.save_checkpoint(self.num_epochs, self.iteration, is_final=True)
+
+        # Create animation from saved sample images
+        gif_path = create_animation(
+            experiment_dir=self.output_dir,
+            samples_subdir="samples",
+            pattern="progress_*.png",
+            include_iteration_text=True,
+        )
+        self.logger.info("Created samples animation: %s", gif_path)
+
+        # Log animation to tensorboard if available
+        if self.writer is not None:
+            try:
+                self.writer.add_artifact(
+                    artifact_name="training_animation",
+                    artifact_type="animation",
+                    file_path=gif_path,
+                    aliases=["final"],
+                )
+                self.writer.close()
+            except AttributeError:
+                self.logger.warning("Could not log artifact to tensorboard")
 
 
 def main():
     """
     Main entry point for ProGAN training script.
+
+    This function parses command-line arguments, loads the configuration,
+    sets up the experiment environment, creates the model and trainer,
+    and starts the training process.
     """
     parser = argparse.ArgumentParser(
         description="Train ProGAN with WGAN-GP and progressive growing"
@@ -209,26 +383,23 @@ def main():
     parser.add_argument("--gpu", type=int, default=0, help="GPU index, -1 for CPU")
     args = parser.parse_args()
 
-    # Load configuration
+    # Load configuration from YAML file
     with open(args.config, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    # Configure experiment environment
+    # Configure experiment environment (output directories, logging, etc.)
     config = configure_experiment(config, gpu_id=args.gpu)
 
-    # Create dataloader (初始分辨率)
-    train_dataloader, valid_dataloader = create_dataloader(config)
-
-    # Create model
+    # Create model from configuration
     model = ProgGAN(config)
 
-    # Create loss function
-    loss_fn = WGANGPLoss(lambda_gp=config.get("training", {}).get("lambda_gp", 10.0))
+    # Create loss function for ProGAN with gradient penalty
+    loss_fn = ProgGANGPLoss()
 
-    # Create ProGANGPTrainer and train
-    trainer = ProGANGPTrainer(
-        model, config, train_dataloader, valid_dataloader, loss_fn=loss_fn
-    )
+    # Create trainer (dataloaders are created inside the trainer)
+    trainer = ProGANGPTrainer(model, config, None, None, loss_fn=loss_fn)
+
+    # Start training
     trainer.train()
 
 

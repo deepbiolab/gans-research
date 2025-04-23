@@ -21,7 +21,7 @@ class ProgGAN(BaseGAN):
         super().__init__(config)
 
         self.latent_dim: int = config["model"]["latent_dim"]
-        self.max_resolution: int = config["data"].get("image_size", 128)
+        self.max_resolution: int = config["data"].get("image_size", 512)
         self.img_channels: int = config["data"]["channels"]
         self.fmap_base: int = config["model"].get("feature_maps", 8192)
         self.fmap_decay: float = config["model"].get("fmap_decay", 1.0)
