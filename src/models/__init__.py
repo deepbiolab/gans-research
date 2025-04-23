@@ -7,13 +7,15 @@ from .dcgan import DCGAN
 from .wgan import WGAN
 from .wgan_gp import WGANGP
 from .cgan import CGAN
+from .prog_gan import ProgGAN
 
 MODEL_REGISTRY = {
     "vanilla_gan": VanillaGAN,
     "dcgan": DCGAN,
     "wgan": WGAN,
     "wgan_gp": WGANGP,
-    "cgan": CGAN
+    "cgan": CGAN,
+    "prog_gan": ProgGAN,
 }
 
 
@@ -56,4 +58,5 @@ __all__ = ["VanillaGAN",
            "WGAN",
            "WGANGP",
            "CGAN",
+           "ProgGAN",
            "MODEL_REGISTRY", "AutoModel"]

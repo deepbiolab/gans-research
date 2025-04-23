@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 
-def get_dataset(config: Dict[str, Any]) -> Tuple[Any, Any]:
+def get_dataset(config: Dict[str, Any], override_image_size: int = None) -> Tuple[Any, Any]:
     """
     Create a dataset based on the configuration.
 
@@ -18,7 +18,7 @@ def get_dataset(config: Dict[str, Any]) -> Tuple[Any, Any]:
         train_dataset, test_dataset: PyTorch datasets, each returns (img, label)
     """
     dataset_name = config["data"]["name"]
-    image_size = config["data"]["image_size"]
+    image_size = override_image_size if override_image_size is not None else config["data"]["image_size"]
 
     # Define basic transforms
     if config["data"]["channels"] == 1:
@@ -92,7 +92,7 @@ def get_dataset(config: Dict[str, Any]) -> Tuple[Any, Any]:
     return train_dataset, test_dataset
 
 
-def create_dataloader(config: Dict[str, Any]):
+def create_dataloader(config: Dict[str, Any], override_image_size: int = None):
     """
     Create DataLoaders for training and validation.
 
@@ -102,7 +102,7 @@ def create_dataloader(config: Dict[str, Any]):
     Returns:
         train_dataloader, valid_dataloader: Each yields (img, label) tuples for CGAN
     """
-    train_dataset, valid_dataset = get_dataset(config)
+    train_dataset, valid_dataset = get_dataset(config, override_image_size)
     batch_size = config["data"]["batch_size"]
     num_workers = config["experiment"].get("num_workers", 4)
 

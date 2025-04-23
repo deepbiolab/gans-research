@@ -12,7 +12,7 @@ from .generator import Generator
 from .discriminator import Discriminator
 
 
-class ProGAN(BaseGAN):
+class ProgGAN(BaseGAN):
     """
     Progressive Growing GAN (ProGAN) implementation.
     """

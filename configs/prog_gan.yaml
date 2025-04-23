@@ -1,14 +1,15 @@
-# Configuration for Progressive GAN on CelebA-HQ
+# Configuration for Progressive GAN on MINIST
 experiment:
-  name: progressive_gan_celeba_hq
+  name: prog_gan_minist
   seed: 42
-  output_dir: ./outputs/progressive_gan
-  log_interval: 100
+  output_dir: ./outputs/prog_gan
+  log_interval: 200
+  sampling_num: 16
   save_interval: 1000
   device: cuda
   
 data:
-  name: celeba_hq
+  name: minist
   channels: 3
   # Progressive training uses different batch sizes for different resolutions
   batch_sizes:
@@ -23,7 +24,7 @@ data:
     1024: 2
 
 model:
-  name: progressive_gan
+  name: prog_gan
   latent_dim: 512
   feature_maps: 16  # Base feature maps, doubles with each resolution decrease
   use_minibatch_stddev: true
@@ -51,7 +52,18 @@ evaluation:
   num_samples: 100
   eval_epoch_interval: 1
 
+inference:
+  checkpoint_path: ./outputs/prog_gan/checkpoints/final_model.pth
+  num_samples: 16
+
 logging:
   use_tensorboard: true
   use_wandb: false
   wandb_project: gans-research
+
+# Tricks for stable training
+ema:
+  enable: true
+  beta: 0.995
+  update_after_step: 100
+  update_every: 1
